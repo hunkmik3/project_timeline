@@ -48,6 +48,10 @@ When a task crosses a day off, the block splits into two pieces around it but
 calendar, merged cells), `DATA` (the task table) and `DAYS OFF` (every day off
 currently applied).
 
+**Export PDF** — landscape A4, one month per page, with a task table at the end.
+The font is embedded from `public/fonts/`, because PDF's built-in fonts are
+Latin-1 only and would turn "Tết Nguyên Đán" into "T ¿t Nguyên â r".
+
 A task with an invalid date range, or one that falls entirely on days off, has
 nothing to draw. Rather than vanishing, it is listed in an amber bar above the
 calendar; click its name to fix it.

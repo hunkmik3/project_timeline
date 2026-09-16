@@ -57,7 +57,7 @@ export default function TimelineApp() {
   const [holidayLoading, setHolidayLoading] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
 
   /** Task currently open in the dialog; null means the dialog is closed. */
   const [editing, setEditing] = useState<{ task: Task; isNew: boolean } | null>(null);
@@ -281,10 +281,10 @@ export default function TimelineApp() {
     setEditing(null);
   };
 
-  const exportExcel = async () => {
-    setExporting(true);
+  const exportAs = async (format: 'xlsx' | 'pdf') => {
+    setExporting(format);
     try {
-      const res = await fetch('/api/export', {
+      const res = await fetch(format === 'pdf' ? '/api/export-pdf' : '/api/export', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ project, holidays }),
@@ -295,13 +295,13 @@ export default function TimelineApp() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${project.title || 'timeline'}.xlsx`;
+      a.download = `${project.title || 'timeline'}.${format}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Export failed');
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -413,11 +413,19 @@ export default function TimelineApp() {
 
           <button
             type="button"
-            onClick={exportExcel}
-            disabled={exporting}
+            onClick={() => exportAs('xlsx')}
+            disabled={exporting !== null}
             className="ml-auto shrink-0 rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {exporting ? 'Exporting…' : 'Export Excel'}
+            {exporting === 'xlsx' ? 'Exporting…' : 'Export Excel'}
+          </button>
+          <button
+            type="button"
+            onClick={() => exportAs('pdf')}
+            disabled={exporting !== null}
+            className="shrink-0 rounded bg-rose-700 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-50"
+          >
+            {exporting === 'pdf' ? 'Exporting…' : 'Export PDF'}
           </button>
         </div>
       </header>

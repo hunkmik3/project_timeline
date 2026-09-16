@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import type { MonthBlock } from './calendar';
 import type { Holiday, OffDayResolver, Task, TaskCategory } from './types';
 import { WEEKDAY_HEADERS, formatDate } from './date';
-import { resolveTaskColors } from './calendar';
+import { effectiveCategoryId, resolveTaskColors } from './calendar';
 
 const argb = (hex: string) => `FF${hex.replace('#', '').toUpperCase().padStart(6, '0')}`;
 
@@ -148,7 +148,9 @@ export async function buildWorkbook(opts: {
 
   for (const task of [...tasks].sort((a, b) => a.start.localeCompare(b.start))) {
     const { color } = resolveTaskColors(task, categories);
-    const cat = categories.find((c) => c.id === task.categoryId);
+    // The stored field is usually null because the type is inferred from the
+    // name; looking it up directly left this column blank for every task.
+    const cat = categories.find((c) => c.id === effectiveCategoryId(task, categories));
     const row = data.addRow({
       name: task.name,
       cat: cat?.name ?? '',
