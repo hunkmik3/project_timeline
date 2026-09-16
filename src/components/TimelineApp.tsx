@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { Holiday, OffDaySettings, ProjectState, Task } from '@/lib/types';
+import type { Holiday, OffDaySettings, ProjectState, Task, TaskPreset } from '@/lib/types';
 import { buildTimeline, countWorkingDays, makeOffDayResolver, resolveRange } from '@/lib/calendar';
 import { addDays, firstOfMonth, isSaneDate, lastOfMonth, shiftMonth, todayISO } from '@/lib/date';
 import {
@@ -15,6 +15,7 @@ import {
 import TimelineCalendar from './TimelineCalendar';
 import TaskDialog from './TaskDialog';
 import DaysOffDialog from './DaysOffDialog';
+import TaskListDialog from './TaskListDialog';
 import { NO_AUTOFILL } from '@/lib/form';
 import {
   THEME_LABELS,
@@ -63,6 +64,7 @@ export default function TimelineApp() {
   /** Task currently open in the dialog; null means the dialog is closed. */
   const [editing, setEditing] = useState<{ task: Task; isNew: boolean } | null>(null);
   const [daysOffOpen, setDaysOffOpen] = useState(false);
+  const [taskListOpen, setTaskListOpen] = useState(false);
   /** Phones default to fitting the whole month on screen; off means scroll wider. */
   const [fitWidth, setFitWidth] = useState(true);
 
@@ -238,6 +240,7 @@ export default function TimelineApp() {
   );
 
   const setOffDays = (offDays: OffDaySettings) => setProject((p) => ({ ...p, offDays }));
+  const setLibrary = (taskLibrary: TaskPreset[]) => setProject((p) => ({ ...p, taskLibrary }));
 
   const openNewTask = () => {
     const today = todayISO();
@@ -392,6 +395,13 @@ export default function TimelineApp() {
           </button>
           <button
             type="button"
+            onClick={() => setTaskListOpen(true)}
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Task list
+          </button>
+          <button
+            type="button"
             onClick={() => setDaysOffOpen(true)}
             className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
@@ -507,10 +517,19 @@ export default function TimelineApp() {
         task={editing?.task ?? null}
         isNew={editing?.isNew ?? false}
         categories={project.categories}
+        library={project.taskLibrary}
         isOff={isOff}
         onClose={() => setEditing(null)}
         onSave={saveTask}
         onDelete={deleteTask}
+      />
+
+      <TaskListDialog
+        open={taskListOpen}
+        library={project.taskLibrary}
+        categories={project.categories}
+        onClose={() => setTaskListOpen(false)}
+        onChange={setLibrary}
       />
 
       <DaysOffDialog

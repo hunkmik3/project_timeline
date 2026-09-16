@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { OffDayResolver, Task, TaskCategory } from '@/lib/types';
+import type { OffDayResolver, Task, TaskCategory, TaskPreset } from '@/lib/types';
 import { countWorkingDays, effectiveCategoryId, resolveTaskColors } from '@/lib/calendar';
 import { SWATCHES, readableTextColor } from '@/lib/presets';
 import { MAX_DATE, MAX_YEAR, MIN_DATE, MIN_YEAR, isSaneDate } from '@/lib/date';
@@ -13,6 +13,8 @@ interface Props {
   task: Task | null;
   isNew: boolean;
   categories: TaskCategory[];
+  /** Names set up in advance; empty means type the name freehand. */
+  library: TaskPreset[];
   isOff: OffDayResolver;
   onClose: () => void;
   onSave: (task: Task) => void;
@@ -30,6 +32,7 @@ export default function TaskDialog({
   task,
   isNew,
   categories,
+  library,
   isOff,
   onClose,
   onSave,
@@ -37,6 +40,13 @@ export default function TaskDialog({
 }: Props) {
   // Remounted per task via `key` in the parent, so the initial value is enough.
   const [draft, setDraft] = useState<Task | null>(task);
+  // An existing task whose name is not in the list has to stay editable, or
+  // opening it would silently offer to rename it.
+  const [freeText, setFreeText] = useState(
+    () =>
+      library.length === 0 ||
+      (task !== null && task.name !== '' && !library.some((p) => p.name === task.name)),
+  );
 
   if (!task || !draft) return null;
 
@@ -92,16 +102,62 @@ export default function TaskDialog({
           <label className={labelCls} htmlFor="task-name">
             Task name
           </label>
-          <input
-            id="task-name"
-            {...NO_AUTOFILL}
-            autoFocus
-            value={draft.name}
-            onChange={(e) => patch({ name: e.target.value })}
-            placeholder="e.g. CONCEPT"
-            className={`${inputCls} font-semibold uppercase`}
-            style={{ backgroundColor: color, color: textColor }}
-          />
+
+          {library.length > 0 && !freeText ? (
+            <select
+              id="task-name"
+              autoFocus
+              value={library.find((p) => p.name === draft.name)?.id ?? ''}
+              onChange={(e) => {
+                if (e.target.value === '__custom') {
+                  setFreeText(true);
+                  patch({ name: '', color: null, textColor: null });
+                  return;
+                }
+                const preset = library.find((p) => p.id === e.target.value);
+                if (preset) {
+                  patch({
+                    name: preset.name,
+                    color: preset.color,
+                    textColor: preset.textColor,
+                  });
+                }
+              }}
+              className={`${inputCls} font-semibold uppercase`}
+              style={{ backgroundColor: color, color: textColor }}
+            >
+              <option value="">— pick a task —</option>
+              {library.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+              <option value="__custom">— type a different name —</option>
+            </select>
+          ) : (
+            <div className="flex gap-1.5">
+              <input
+                id="task-name"
+                {...NO_AUTOFILL}
+                autoFocus
+                value={draft.name}
+                onChange={(e) => patch({ name: e.target.value })}
+                placeholder="e.g. CONCEPT"
+                className={`${inputCls} font-semibold uppercase`}
+                style={{ backgroundColor: color, color: textColor }}
+              />
+              {library.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFreeText(false)}
+                  className="shrink-0 rounded border border-neutral-300 px-2 text-[11px] text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  List
+                </button>
+              )}
+            </div>
+          )}
+
           {missingName && (
             <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">Give the task a name to save it.</p>
           )}

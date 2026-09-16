@@ -23,7 +23,14 @@ The range covers the work plus two months before and six after, so there is
 always an empty month to scroll into and fill in. Those months draw the full
 grid, with days off and public holidays already marked, before any task exists.
 
+**Task list** — set up the names you use before placing any work: add them one
+at a time, or paste a whole list, one name per line. Blank lines and repeats are
+skipped. Each name can carry its own colour, otherwise the colour is still
+guessed from the name.
+
 **+ Add task** — a task needs three things: a name, a start date and an end date.
+Once the task list has names in it, the name field becomes a dropdown; pick
+"type a different name" for a one-off that does not belong in the list.
 
 - The colour is picked from the name: type `CONCEPT` and it turns slate blue,
   `FEEDBACK R1` red, `REVISION STORYBOARD R1` amber. Override it in the dialog.

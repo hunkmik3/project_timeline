@@ -50,6 +50,7 @@ export function emptyProject(): ProjectState {
       color,
       textColor,
     })),
+    taskLibrary: [],
     offDays: { ...DEFAULT_OFF_DAYS },
   };
 }
@@ -78,6 +79,14 @@ export function normalizeProject(raw: unknown): ProjectState {
         }))
       : [],
     categories: Array.isArray(p.categories) && p.categories.length > 0 ? p.categories : base.categories,
+    taskLibrary: Array.isArray(p.taskLibrary)
+      ? p.taskLibrary.map((t) => ({
+          id: t.id ?? crypto.randomUUID(),
+          name: t.name ?? '',
+          color: t.color ?? null,
+          textColor: t.textColor ?? null,
+        })).filter((t) => t.name.trim() !== '')
+      : [],
     offDays: { ...base.offDays, ...(p.offDays ?? {}) },
   };
 }

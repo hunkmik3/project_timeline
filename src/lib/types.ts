@@ -25,6 +25,18 @@ export interface Task {
   order: number;
 }
 
+/**
+ * A reusable task name set up ahead of time, so placing work on the calendar is
+ * a pick from a list rather than retyping the same names every month.
+ */
+export interface TaskPreset {
+  id: string;
+  name: string;
+  /** Optional override; without it the colour is still guessed from the name. */
+  color: string | null;
+  textColor: string | null;
+}
+
 export interface CustomOffDay {
   date: ISODate;
   label: string;
@@ -64,6 +76,8 @@ export interface ProjectState {
   rangeEnd: ISODate | null;
   tasks: Task[];
   categories: TaskCategory[];
+  /** The names offered in the Add task dropdown. */
+  taskLibrary: TaskPreset[];
   offDays: OffDaySettings;
 }
 
