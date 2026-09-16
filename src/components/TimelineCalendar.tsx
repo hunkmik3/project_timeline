@@ -146,14 +146,14 @@ export default function TimelineCalendar({
                           style={{ backgroundColor: c.color }}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-semibold leading-tight">
+                          <span className="line-clamp-2 block text-[13px] font-semibold leading-tight [overflow-wrap:anywhere]">
                             {task.name}
                           </span>
                           <span className="block truncate text-[11px] leading-tight text-neutral-500 dark:text-neutral-400">
                             {formatRangeShort(task.start, task.end)}
                           </span>
                           {task.note && (
-                            <span className="block truncate text-[11px] italic leading-tight text-neutral-400 dark:text-neutral-500">
+                            <span className="line-clamp-2 block text-[11px] italic leading-tight text-neutral-400 [overflow-wrap:anywhere] dark:text-neutral-500">
                               {task.note}
                             </span>
                           )}
@@ -244,7 +244,13 @@ export default function TimelineCalendar({
                               color: p.textColor,
                             }}
                           >
-                            <span className={`w-full truncate font-bold ${nameText}`}>
+                            {/* Wraps to a second line instead of cutting off.
+                                overflow-wrap:anywhere is what breaks a long
+                                unspaced name — break-words alone leaves it
+                                overflowing the cell. */}
+                            <span
+                              className={`line-clamp-2 w-full font-bold [overflow-wrap:anywhere] ${nameText}`}
+                            >
                               {p.task.name}
                             </span>
                             {p.task.note && (

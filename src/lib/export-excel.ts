@@ -138,7 +138,8 @@ export async function buildWorkbook(opts: {
             : placed.task.name;
           cell.fill = solidFill(placed.color);
           cell.font = { bold: true, size: 11, color: textColor };
-          cell.alignment = { ...centered(), wrapText: Boolean(note) };
+          // Always wrap: a long name needs the second line as much as a note does.
+          cell.alignment = { ...centered(), wrapText: true };
           cell.border = thinBorder();
         }
       }

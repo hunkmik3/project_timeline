@@ -171,29 +171,40 @@ export async function buildPdf(opts: {
 
           cell('', x, boxY, w, laneH, { fill: placed.color });
 
-          const lineH = note ? nameSize + noteSize + 2 : nameSize;
+          // A long name wraps rather than being cut off, but only as far as the
+          // row allows. The line height has to come from the font — it runs
+          // well above the point size, and guessing it costs a whole line.
+          const textW = w - 4;
+          doc.font('bold').fontSize(nameSize);
+          const lineHeight = doc.currentLineHeight();
+          const roomForName = laneH - 2 - (note ? noteSize + 2 : 0);
+          const maxLines = Math.min(2, Math.max(1, Math.floor(roomForName / lineHeight)));
+          const nameH = Math.min(
+            doc.heightOfString(placed.task.name, { width: textW }),
+            lineHeight * maxLines,
+          );
+
+          const lineH = note ? nameH + noteSize + 2 : nameH;
           let ty = boxY + (laneH - lineH) / 2 - 1;
 
           doc
-            .font('bold')
-            .fontSize(nameSize)
             .fillColor(placed.textColor)
             .text(placed.task.name, x + 2, ty, {
-              width: w - 4,
+              width: textW,
+              height: nameH,
               align: 'center',
-              lineBreak: false,
               ellipsis: true,
             });
 
           if (note) {
-            ty += nameSize + 2;
+            ty += nameH + 2;
             doc
               .font('italic')
               .fontSize(noteSize)
               .fillColor(placed.textColor)
               .opacity(0.8)
               .text(note, x + 2, ty, {
-                width: w - 4,
+                width: textW,
                 align: 'center',
                 lineBreak: false,
                 ellipsis: true,
