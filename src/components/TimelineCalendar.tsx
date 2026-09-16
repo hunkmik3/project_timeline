@@ -2,17 +2,20 @@
 
 import { Fragment } from 'react';
 import type { MonthBlock } from '@/lib/calendar';
-import type { TaskCategory } from '@/lib/types';
-import { WEEKDAY_HEADERS, formatDate, formatRangeShort } from '@/lib/date';
-import { resolveTaskColors } from '@/lib/calendar';
+import type { TaskCategory, TaskPreset } from '@/lib/types';
+import MonthTaskPanel from './MonthTaskPanel';
+import { WEEKDAY_HEADERS, formatDate } from '@/lib/date';
 
 interface Props {
   blocks: MonthBlock[];
   categories: TaskCategory[];
+  /** Names from Task list, shown in each month's panel. */
+  library: TaskPreset[];
   title: string;
   selectedTaskId: string | null;
   onSelectTask: (id: string) => void;
-  onAddTask: () => void;
+  /** Passing a preset pre-fills the new task with that name and colour. */
+  onAddTask: (preset?: TaskPreset) => void;
   /** Mobile: squeeze all 7 columns to the screen width instead of scrolling. */
   fitWidth: boolean;
 }
@@ -62,6 +65,7 @@ const LANE_ROW = 'minmax(1rem, 1.35fr)';
 export default function TimelineCalendar({
   blocks,
   categories,
+  library,
   title,
   selectedTaskId,
   onSelectTask,
@@ -92,7 +96,7 @@ export default function TimelineCalendar({
           </p>
           <button
             type="button"
-            onClick={onAddTask}
+            onClick={() => onAddTask()}
             className="rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             + Add task
@@ -121,47 +125,14 @@ export default function TimelineCalendar({
           <section key={block.key} id={`m-${block.key}`} className={SECTION}>
             <div className={ROW}>
               <aside className={SIDEBAR}>
-                <h3 className="mb-2 shrink-0 text-[11px] font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                  Tasks · {block.tasks.length}
-                </h3>
-                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">
-                  {block.tasks.length === 0 && (
-                    <p className="py-4 text-center text-[12px] text-neutral-400 dark:text-neutral-500">
-                      Nothing this month
-                    </p>
-                  )}
-                  {block.tasks.map((task) => {
-                    const c = resolveTaskColors(task, categories);
-                    return (
-                      <button
-                        key={task.id}
-                        type="button"
-                        onClick={() => onSelectTask(task.id)}
-                        className={`flex w-full items-start gap-2 rounded px-1.5 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
-                          selectedTaskId === task.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
-                        }`}
-                      >
-                        <span
-                          className="mt-1 size-3 shrink-0 rounded-sm border border-black/10"
-                          style={{ backgroundColor: c.color }}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="line-clamp-2 block text-[13px] font-semibold leading-tight [overflow-wrap:anywhere]">
-                            {task.name}
-                          </span>
-                          <span className="block truncate text-[11px] leading-tight text-neutral-500 dark:text-neutral-400">
-                            {formatRangeShort(task.start, task.end)}
-                          </span>
-                          {task.note && (
-                            <span className="line-clamp-2 block text-[11px] italic leading-tight text-neutral-400 [overflow-wrap:anywhere] dark:text-neutral-500">
-                              {task.note}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <MonthTaskPanel
+                  library={library}
+                  tasks={block.tasks}
+                  categories={categories}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={onSelectTask}
+                  onAddNamed={onAddTask}
+                />
               </aside>
 
               <div className={CARD}>

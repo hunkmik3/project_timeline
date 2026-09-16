@@ -37,10 +37,12 @@ Once the task list has names in it, the name field becomes a dropdown; pick
 - Two tasks on the same dates stack into separate rows instead of overlapping.
 - A task spanning several weeks wraps onto the next week's row.
 
-Beside each month is a panel listing every task that falls in it — colour,
-name, dates and note — and clicking a row opens that task. A task buried under
-days off has no block to click, so the panel is the way back to it. The panel
-needs the width, so it is hidden below 1024px.
+Beside each month is a panel built from the task list. A name already placed
+shows its dates and opens for editing; one that is not yet placed is dimmed and
+reads "not scheduled" — clicking it opens Add task with the name and colour
+filled in. Anything scheduled whose name is not in the list is grouped under
+"Not in the list", so a task buried under days off, which has no block to click,
+is still reachable. The panel needs the width, so it is hidden below 1024px.
 
 **Click any block** on the calendar to edit or delete that task.
 

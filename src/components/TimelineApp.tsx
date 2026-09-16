@@ -242,7 +242,7 @@ export default function TimelineApp() {
   const setOffDays = (offDays: OffDaySettings) => setProject((p) => ({ ...p, offDays }));
   const setLibrary = (taskLibrary: TaskPreset[]) => setProject((p) => ({ ...p, taskLibrary }));
 
-  const openNewTask = () => {
+  const openNewTask = (preset?: TaskPreset) => {
     const today = todayISO();
     const sorted = [...project.tasks].sort((a, b) => a.end.localeCompare(b.end));
     const last = sorted[sorted.length - 1];
@@ -253,12 +253,14 @@ export default function TimelineApp() {
       isNew: true,
       task: {
         id: crypto.randomUUID(),
-        name: '',
+        // Clicking an unscheduled name in the month panel arrives with its
+        // preset, so the dialog opens already filled in.
+        name: preset?.name ?? '',
         start,
         end: addDays(start, 2),
         categoryId: null,
-        color: null,
-        textColor: null,
+        color: preset?.color ?? null,
+        textColor: preset?.textColor ?? null,
         note: '',
         order: project.tasks.length,
       },
@@ -381,7 +383,7 @@ export default function TimelineApp() {
         <div className="flex items-center gap-2 overflow-x-auto px-3 pb-2 sm:px-4">
           <button
             type="button"
-            onClick={openNewTask}
+            onClick={() => openNewTask()}
             className="shrink-0 rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             + Add task
@@ -505,6 +507,7 @@ export default function TimelineApp() {
         <TimelineCalendar
           blocks={blocks}
           categories={project.categories}
+          library={project.taskLibrary}
           title={project.title}
           selectedTaskId={editing?.task.id ?? null}
           onSelectTask={openTask}
