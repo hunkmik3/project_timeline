@@ -25,11 +25,13 @@ const CELL = 'border border-neutral-300 text-center dark:border-neutral-700';
  * rather than halfway through one.
  */
 const SECTION =
-  'flex h-full snap-start items-center justify-center px-2 py-[clamp(0.5rem,1.5svh,1rem)] sm:px-4 lg:px-6';
+  'flex h-full snap-start items-center justify-center px-2 py-[clamp(0.5rem,1.5svh,1rem)] sm:px-4 lg:px-0';
 
 /** Holds the month's task list and the calendar side by side, within one width
  *  so the pair stays centred instead of the calendar drifting off-axis. */
-const ROW = 'mx-auto flex h-[88%] max-h-full w-full max-w-7xl gap-2 sm:gap-3';
+// 90% of the viewport on desktop; on a phone the padding alone is the margin,
+// since the calendar needs every pixel of width it can get.
+const ROW = 'mx-auto flex h-[88%] max-h-full w-full gap-2 sm:gap-3 lg:w-[90%]';
 
 /**
  * Below lg there is no room beside the calendar, and stacking the list under it
@@ -37,7 +39,7 @@ const ROW = 'mx-auto flex h-[88%] max-h-full w-full max-w-7xl gap-2 sm:gap-3';
  * the way in on a phone.
  */
 const SIDEBAR =
-  'hidden w-44 shrink-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-sm lg:flex xl:w-56 dark:border-neutral-800 dark:bg-[#151518]';
+  'hidden w-52 shrink-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white p-2.5 shadow-sm lg:flex xl:w-64 dark:border-neutral-800 dark:bg-[#151518]';
 
 const CARD =
   'flex h-full min-w-0 flex-1 flex-col overflow-x-auto rounded-lg border border-neutral-200 bg-white p-[clamp(0.6rem,1.8svh,1.25rem)] shadow-sm dark:border-neutral-800 dark:bg-[#151518]';
@@ -119,12 +121,12 @@ export default function TimelineCalendar({
           <section key={block.key} id={`m-${block.key}`} className={SECTION}>
             <div className={ROW}>
               <aside className={SIDEBAR}>
-                <h3 className="mb-1.5 shrink-0 text-[10px] font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                <h3 className="mb-2 shrink-0 text-[11px] font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   Tasks · {block.tasks.length}
                 </h3>
                 <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">
                   {block.tasks.length === 0 && (
-                    <p className="py-4 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+                    <p className="py-4 text-center text-[12px] text-neutral-400 dark:text-neutral-500">
                       Nothing this month
                     </p>
                   )}
@@ -135,23 +137,23 @@ export default function TimelineCalendar({
                         key={task.id}
                         type="button"
                         onClick={() => onSelectTask(task.id)}
-                        className={`flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+                        className={`flex w-full items-start gap-2 rounded px-1.5 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
                           selectedTaskId === task.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
                         }`}
                       >
                         <span
-                          className="mt-0.5 size-2.5 shrink-0 rounded-sm border border-black/10"
+                          className="mt-1 size-3 shrink-0 rounded-sm border border-black/10"
                           style={{ backgroundColor: c.color }}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[11px] font-semibold leading-tight">
+                          <span className="block truncate text-[13px] font-semibold leading-tight">
                             {task.name}
                           </span>
-                          <span className="block truncate text-[10px] leading-tight text-neutral-500 dark:text-neutral-400">
+                          <span className="block truncate text-[11px] leading-tight text-neutral-500 dark:text-neutral-400">
                             {formatRangeShort(task.start, task.end)}
                           </span>
                           {task.note && (
-                            <span className="block truncate text-[10px] italic leading-tight text-neutral-400 dark:text-neutral-500">
+                            <span className="block truncate text-[11px] italic leading-tight text-neutral-400 dark:text-neutral-500">
                               {task.note}
                             </span>
                           )}
