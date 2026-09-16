@@ -1,8 +1,8 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import type { MonthBlock } from '@/lib/calendar';
-import type { TaskCategory, TaskPreset } from '@/lib/types';
+import type { ISODate, TaskCategory, TaskPreset } from '@/lib/types';
 import MonthTaskPanel from './MonthTaskPanel';
 import { WEEKDAY_HEADERS, formatDate } from '@/lib/date';
 
@@ -16,6 +16,8 @@ interface Props {
   onSelectTask: (id: string) => void;
   /** Passing a preset pre-fills the new task with that name and colour. */
   onAddTask: (preset?: TaskPreset) => void;
+  /** Clicking or dragging across empty cells picks the dates for a new task. */
+  onAddRange: (start: ISODate, end: ISODate) => void;
   /** Mobile: squeeze all 7 columns to the screen width instead of scrolling. */
   fitWidth: boolean;
 }
@@ -70,8 +72,66 @@ export default function TimelineCalendar({
   selectedTaskId,
   onSelectTask,
   onAddTask,
+  onAddRange,
   fitWidth,
 }: Props) {
+  /** Live drag selection; both ends are dates, in whatever order they were drawn. */
+  const [drag, setDrag] = useState<{ from: ISODate; to: ISODate } | null>(null);
+  /** A touch that did not move is a tap on one day — touch must not hijack scrolling. */
+  const tap = useRef<{ date: ISODate; x: number; y: number } | null>(null);
+
+  const dateAt = (x: number, y: number) =>
+    document.elementFromPoint(x, y)?.closest('[data-date]')?.getAttribute('data-date') ?? null;
+
+  const commit = (from: ISODate, to: ISODate) =>
+    onAddRange(from <= to ? from : to, from <= to ? to : from);
+
+  const gridHandlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      const date = (e.target as HTMLElement).closest('[data-date]')?.getAttribute('data-date');
+      if (!date) return;
+      if (e.pointerType !== 'mouse') {
+        tap.current = { date, x: e.clientX, y: e.clientY };
+        return;
+      }
+      if (e.button !== 0) return;
+      // Stops the drag from selecting the date numbers as text.
+      e.preventDefault();
+      setDrag({ from: date, to: date });
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (!drag) return;
+      const date = dateAt(e.clientX, e.clientY);
+      if (date && date !== drag.to) setDrag({ ...drag, to: date });
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      if (drag) {
+        const { from, to } = drag;
+        setDrag(null);
+        commit(from, to);
+        return;
+      }
+      const start = tap.current;
+      tap.current = null;
+      // Anything past a few pixels was a scroll, not a tap.
+      if (!start) return;
+      if (Math.abs(e.clientX - start.x) > 8 || Math.abs(e.clientY - start.y) > 8) return;
+      commit(start.date, start.date);
+    },
+    onPointerCancel: () => {
+      setDrag(null);
+      tap.current = null;
+    },
+  };
+
+  const inDrag = (date: ISODate | null) => {
+    if (!date || !drag) return false;
+    const lo = drag.from <= drag.to ? drag.from : drag.to;
+    const hi = drag.from <= drag.to ? drag.to : drag.from;
+    return date >= lo && date <= hi;
+  };
+
   // Fitting the width leaves ~50px per column on a phone, so the type shrinks too.
   // The task name outranks the date number: it is what the calendar is for.
   const dayText = fitWidth
@@ -155,8 +215,9 @@ export default function TimelineCalendar({
                 </h2>
 
                 <div
-                  className="grid min-h-0 flex-1 grid-cols-7"
+                  className="grid min-h-0 flex-1 touch-pan-y grid-cols-7 select-none"
                   style={{ gridTemplateRows: rowSizes.join(' ') }}
+                  {...gridHandlers}
                 >
                   {WEEKDAY_HEADERS.map((label, i) => (
                     <div
@@ -175,11 +236,16 @@ export default function TimelineCalendar({
                       {week.days.map((day, i) => (
                         <div
                           key={`d${i}`}
+                          data-date={day.date ?? undefined}
                           className={`${CELL} ${dayText} flex items-center justify-center ${
+                            day.date ? 'cursor-cell' : ''
+                          } ${
                             day.date && day.isOff
                               ? 'bg-[#1F4E5A] text-white'
                               : 'text-neutral-800 dark:text-neutral-300'
-                          } ${day.isToday ? 'font-bold ring-1 ring-inset ring-blue-500' : ''}`}
+                          } ${day.isToday ? 'font-bold ring-1 ring-inset ring-blue-500' : ''} ${
+                            inDrag(day.date) ? 'ring-2 ring-inset ring-blue-500' : ''
+                          }`}
                           style={{ gridColumn: i + 1, gridRow: dateRow }}
                           title={day.offLabel}
                         >
@@ -192,7 +258,10 @@ export default function TimelineCalendar({
                         week.days.map((day, i) => (
                           <div
                             key={`l${lane}-${i}`}
-                            className={`${CELL} ${day.date && day.isOff ? 'bg-[#1F4E5A]' : ''}`}
+                            data-date={day.date ?? undefined}
+                            className={`${CELL} ${day.date ? 'cursor-cell' : ''} ${
+                              day.date && day.isOff ? 'bg-[#1F4E5A]' : ''
+                            } ${inDrag(day.date) ? 'ring-2 ring-inset ring-blue-500' : ''}`}
                             style={{ gridColumn: i + 1, gridRow: laneStart + lane }}
                           />
                         )),

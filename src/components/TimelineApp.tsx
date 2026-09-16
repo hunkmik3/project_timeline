@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { Holiday, OffDaySettings, ProjectState, Task, TaskPreset } from '@/lib/types';
+import type { Holiday, ISODate, OffDaySettings, ProjectState, Task, TaskPreset } from '@/lib/types';
 import { buildTimeline, countWorkingDays, makeOffDayResolver, resolveRange } from '@/lib/calendar';
 import { addDays, firstOfMonth, isSaneDate, lastOfMonth, shiftMonth, todayISO } from '@/lib/date';
 import {
@@ -242,13 +242,15 @@ export default function TimelineApp() {
   const setOffDays = (offDays: OffDaySettings) => setProject((p) => ({ ...p, offDays }));
   const setLibrary = (taskLibrary: TaskPreset[]) => setProject((p) => ({ ...p, taskLibrary }));
 
-  const openNewTask = (preset?: TaskPreset) => {
+  const openNewTask = (opts: { preset?: TaskPreset; start?: ISODate; end?: ISODate } = {}) => {
+    const { preset, start: pickedStart, end: pickedEnd } = opts;
     const today = todayISO();
     const sorted = [...project.tasks].sort((a, b) => a.end.localeCompare(b.end));
     const last = sorted[sorted.length - 1];
     // Chain onto the end of the last task; everything is on one scrollable page
     // so there is no "current month" to bias towards.
-    const start = last?.end && isSaneDate(last.end) ? addDays(last.end, 1) : today;
+    // Dates dragged on the calendar win; otherwise chain onto the last task.
+    const start = pickedStart ?? (last?.end && isSaneDate(last.end) ? addDays(last.end, 1) : today);
     setEditing({
       isNew: true,
       task: {
@@ -257,7 +259,7 @@ export default function TimelineApp() {
         // preset, so the dialog opens already filled in.
         name: preset?.name ?? '',
         start,
-        end: addDays(start, 2),
+        end: pickedEnd ?? addDays(start, 2),
         categoryId: null,
         color: preset?.color ?? null,
         textColor: preset?.textColor ?? null,
@@ -511,7 +513,8 @@ export default function TimelineApp() {
           title={project.title}
           selectedTaskId={editing?.task.id ?? null}
           onSelectTask={openTask}
-          onAddTask={openNewTask}
+          onAddTask={(preset) => openNewTask({ preset })}
+          onAddRange={(start, end) => openNewTask({ start, end })}
           fitWidth={fitWidth}
         />
       </main>
