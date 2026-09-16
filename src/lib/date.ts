@@ -121,6 +121,19 @@ const MONTH_SHORT = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+/** "16–21 Sep" for a narrow column; the year is implied by the month heading. */
+export function formatRangeShort(start: ISODate, end: ISODate): string {
+  const a = parseISO(start);
+  const b = parseISO(end);
+  const am = MONTH_SHORT[a.getMonth()];
+  const bm = MONTH_SHORT[b.getMonth()];
+  if (start === end) return `${a.getDate()} ${am}`;
+  if (am === bm && a.getFullYear() === b.getFullYear()) {
+    return `${a.getDate()}–${b.getDate()} ${am}`;
+  }
+  return `${a.getDate()} ${am} – ${b.getDate()} ${bm}`;
+}
+
 /** "16 Sep 2026" — spelled-out month avoids the DD/MM vs MM/DD ambiguity. */
 export function formatDate(s: ISODate): string {
   const d = parseISO(s);

@@ -61,6 +61,11 @@ export interface MonthBlock {
   month: number;
   label: string;
   weeks: WeekRow[];
+  /**
+   * Every task overlapping this month, drawn or not — a task buried under days
+   * off still belongs in the month's list, where it can be clicked and fixed.
+   */
+  tasks: Task[];
 }
 
 export const DEFAULT_OFF_DAYS: OffDaySettings = {
@@ -293,6 +298,7 @@ export function buildTimeline(
       month,
       label: `${MONTH_NAMES_EN[month - 1]} ${year}`,
       weeks,
+      tasks: ordered.filter((t) => t.start <= monthEnd && t.end >= monthStart),
     });
   }
 

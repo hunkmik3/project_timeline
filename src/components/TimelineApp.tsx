@@ -504,6 +504,7 @@ export default function TimelineApp() {
       >
         <TimelineCalendar
           blocks={blocks}
+          categories={project.categories}
           title={project.title}
           selectedTaskId={editing?.task.id ?? null}
           onSelectTask={openTask}

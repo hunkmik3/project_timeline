@@ -37,6 +37,11 @@ Once the task list has names in it, the name field becomes a dropdown; pick
 - Two tasks on the same dates stack into separate rows instead of overlapping.
 - A task spanning several weeks wraps onto the next week's row.
 
+Beside each month is a panel listing every task that falls in it — colour,
+name, dates and note — and clicking a row opens that task. A task buried under
+days off has no block to click, so the panel is the way back to it. The panel
+needs the width, so it is hidden below 1024px.
+
 **Click any block** on the calendar to edit or delete that task.
 
 A task's note shows on the block itself, in italics under the name. The name is

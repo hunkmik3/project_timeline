@@ -2,10 +2,13 @@
 
 import { Fragment } from 'react';
 import type { MonthBlock } from '@/lib/calendar';
-import { WEEKDAY_HEADERS, formatDate } from '@/lib/date';
+import type { TaskCategory } from '@/lib/types';
+import { WEEKDAY_HEADERS, formatDate, formatRangeShort } from '@/lib/date';
+import { resolveTaskColors } from '@/lib/calendar';
 
 interface Props {
   blocks: MonthBlock[];
+  categories: TaskCategory[];
   title: string;
   selectedTaskId: string | null;
   onSelectTask: (id: string) => void;
@@ -22,10 +25,22 @@ const CELL = 'border border-neutral-300 text-center dark:border-neutral-700';
  * rather than halfway through one.
  */
 const SECTION =
-  'flex h-full snap-start flex-col justify-center px-2 py-[clamp(0.5rem,1.5svh,1rem)] sm:px-4 lg:px-6';
+  'flex h-full snap-start items-center justify-center px-2 py-[clamp(0.5rem,1.5svh,1rem)] sm:px-4 lg:px-6';
+
+/** Holds the month's task list and the calendar side by side, within one width
+ *  so the pair stays centred instead of the calendar drifting off-axis. */
+const ROW = 'mx-auto flex h-[88%] max-h-full w-full max-w-7xl gap-2 sm:gap-3';
+
+/**
+ * Below lg there is no room beside the calendar, and stacking the list under it
+ * would push the month past one screen and break snapping. Tapping a block is
+ * the way in on a phone.
+ */
+const SIDEBAR =
+  'hidden w-44 shrink-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-sm lg:flex xl:w-56 dark:border-neutral-800 dark:bg-[#151518]';
 
 const CARD =
-  'mx-auto flex h-[88%] max-h-full w-full max-w-7xl flex-col overflow-x-auto rounded-lg border border-neutral-200 bg-white p-[clamp(0.6rem,1.8svh,1.25rem)] shadow-sm dark:border-neutral-800 dark:bg-[#151518]';
+  'flex h-full min-w-0 flex-1 flex-col overflow-x-auto rounded-lg border border-neutral-200 bg-white p-[clamp(0.6rem,1.8svh,1.25rem)] shadow-sm dark:border-neutral-800 dark:bg-[#151518]';
 
 /**
  * Every row of the month — the weekday header, each week's dates and each lane
@@ -44,6 +59,7 @@ const LANE_ROW = 'minmax(1rem, 1.35fr)';
 
 export default function TimelineCalendar({
   blocks,
+  categories,
   title,
   selectedTaskId,
   onSelectTask,
@@ -68,7 +84,7 @@ export default function TimelineCalendar({
   if (blocks.length === 0) {
     return (
       <section className={SECTION}>
-        <div className={`${CARD} items-center justify-center text-center`}>
+        <div className={`${ROW} ${CARD} items-center justify-center text-center`}>
           <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
             No tasks yet. Add one and the calendar builds itself.
           </p>
@@ -101,7 +117,52 @@ export default function TimelineCalendar({
 
         return (
           <section key={block.key} id={`m-${block.key}`} className={SECTION}>
-            <div className={CARD}>
+            <div className={ROW}>
+              <aside className={SIDEBAR}>
+                <h3 className="mb-1.5 shrink-0 text-[10px] font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  Tasks · {block.tasks.length}
+                </h3>
+                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">
+                  {block.tasks.length === 0 && (
+                    <p className="py-4 text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+                      Nothing this month
+                    </p>
+                  )}
+                  {block.tasks.map((task) => {
+                    const c = resolveTaskColors(task, categories);
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => onSelectTask(task.id)}
+                        className={`flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+                          selectedTaskId === task.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
+                        }`}
+                      >
+                        <span
+                          className="mt-0.5 size-2.5 shrink-0 rounded-sm border border-black/10"
+                          style={{ backgroundColor: c.color }}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[11px] font-semibold leading-tight">
+                            {task.name}
+                          </span>
+                          <span className="block truncate text-[10px] leading-tight text-neutral-500 dark:text-neutral-400">
+                            {formatRangeShort(task.start, task.end)}
+                          </span>
+                          {task.note && (
+                            <span className="block truncate text-[10px] italic leading-tight text-neutral-400 dark:text-neutral-500">
+                              {task.note}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              <div className={CARD}>
               {/* Zoomed mode sets a min width so block labels stay readable and
                   the card scrolls sideways. Desktop is always wide enough. */}
               <div
@@ -195,6 +256,7 @@ export default function TimelineCalendar({
                     </Fragment>
                   ))}
                 </div>
+              </div>
               </div>
             </div>
           </section>
