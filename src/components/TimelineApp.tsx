@@ -15,6 +15,7 @@ import {
 import TimelineCalendar from './TimelineCalendar';
 import TaskDialog from './TaskDialog';
 import DaysOffDialog from './DaysOffDialog';
+import { NO_AUTOFILL } from '@/lib/form';
 import {
   THEME_LABELS,
   THEME_ORDER,
@@ -327,6 +328,7 @@ export default function TimelineApp() {
       <header className="shrink-0 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#17171a]">
         <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
           <input
+            {...NO_AUTOFILL}
             value={project.title}
             onChange={(e) => setProject((p) => ({ ...p, title: e.target.value }))}
             aria-label="Project title"

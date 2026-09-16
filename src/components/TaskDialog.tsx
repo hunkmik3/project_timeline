@@ -5,6 +5,7 @@ import type { OffDayResolver, Task, TaskCategory } from '@/lib/types';
 import { countWorkingDays, effectiveCategoryId, resolveTaskColors } from '@/lib/calendar';
 import { SWATCHES, readableTextColor } from '@/lib/presets';
 import { MAX_DATE, MAX_YEAR, MIN_DATE, MIN_YEAR, isSaneDate } from '@/lib/date';
+import { NO_AUTOFILL } from '@/lib/form';
 import Modal from './Modal';
 
 interface Props {
@@ -93,6 +94,7 @@ export default function TaskDialog({
           </label>
           <input
             id="task-name"
+            {...NO_AUTOFILL}
             autoFocus
             value={draft.name}
             onChange={(e) => patch({ name: e.target.value })}
@@ -112,6 +114,7 @@ export default function TaskDialog({
             </label>
             <input
               id="task-start"
+              {...NO_AUTOFILL}
               type="date"
               value={draft.start}
               min={MIN_DATE}
@@ -126,6 +129,7 @@ export default function TaskDialog({
             </label>
             <input
               id="task-end"
+              {...NO_AUTOFILL}
               type="date"
               value={draft.end}
               min={draft.start || MIN_DATE}
@@ -208,6 +212,7 @@ export default function TaskDialog({
           </label>
           <input
             id="task-note"
+            {...NO_AUTOFILL}
             value={draft.note}
             onChange={(e) => patch({ note: e.target.value })}
             placeholder="Optional"

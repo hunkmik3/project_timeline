@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { Holiday, ISODate, OffDaySettings, Weekday } from '@/lib/types';
 import { COLUMN_TO_WEEKDAY, WEEKDAY_HEADERS, formatDate, todayISO } from '@/lib/date';
+import { NO_AUTOFILL } from '@/lib/form';
 import Modal from './Modal';
 
 interface Props {
@@ -191,6 +192,7 @@ export default function DaysOffDialog({
           {/* Two rows on phones; sm:contents drops the wrapper so it sits on one line. */}
           <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-1">
             <input
+              {...NO_AUTOFILL}
               type="date"
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
@@ -198,6 +200,7 @@ export default function DaysOffDialog({
             />
             <div className="flex gap-1.5 sm:contents">
               <input
+                {...NO_AUTOFILL}
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Reason (e.g. Team building)"
@@ -248,6 +251,7 @@ export default function DaysOffDialog({
           </p>
           <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-1">
             <input
+              {...NO_AUTOFILL}
               type="date"
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
