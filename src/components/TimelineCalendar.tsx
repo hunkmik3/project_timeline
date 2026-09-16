@@ -29,12 +29,18 @@ const CARD =
 
 /**
  * Every row of the month — the weekday header, each week's dates and each lane
- * under it — shares one grid so `1fr` can stretch them to fill the screen. A
+ * under it — shares one grid so the fractions stretch to fill the screen. A
  * month with five weeks and a month with six both end up exactly one screen
- * tall, which is what keeps snapping honest. The floor stops a busy month from
+ * tall, which is what keeps snapping honest. The floors stop a busy month from
  * squeezing rows into illegibility; past that the card scrolls instead.
+ *
+ * Lane rows get the larger share: they carry the task name and, under it, the
+ * note — the content people actually read — while the date rows only hold a
+ * number.
  */
-const GRID_ROW_SIZE = 'minmax(0.95rem, 1fr)';
+const HEADER_ROW = 'minmax(0.9rem, 0.9fr)';
+const DATE_ROW = 'minmax(0.85rem, 0.85fr)';
+const LANE_ROW = 'minmax(1rem, 1.35fr)';
 
 export default function TimelineCalendar({
   blocks,
@@ -45,12 +51,16 @@ export default function TimelineCalendar({
   fitWidth,
 }: Props) {
   // Fitting the width leaves ~50px per column on a phone, so the type shrinks too.
+  // The task name outranks the date number: it is what the calendar is for.
   const dayText = fitWidth
-    ? 'text-[11px] sm:text-[clamp(0.72rem,1.8svh,1rem)]'
-    : 'text-[13px] sm:text-[clamp(0.72rem,1.8svh,1rem)]';
-  const blockText = fitWidth
-    ? 'text-[9px] sm:text-[clamp(0.6rem,1.45svh,0.82rem)]'
-    : 'text-[11px] sm:text-[clamp(0.6rem,1.45svh,0.82rem)]';
+    ? 'text-[10px] sm:text-[clamp(0.6rem,1.45svh,0.85rem)]'
+    : 'text-[11px] sm:text-[clamp(0.6rem,1.45svh,0.85rem)]';
+  const nameText = fitWidth
+    ? 'text-[10px] sm:text-[clamp(0.7rem,1.85svh,1.05rem)]'
+    : 'text-[12px] sm:text-[clamp(0.7rem,1.85svh,1.05rem)]';
+  const noteText = fitWidth
+    ? 'text-[8px] sm:text-[clamp(0.55rem,1.35svh,0.8rem)]'
+    : 'text-[10px] sm:text-[clamp(0.55rem,1.35svh,0.8rem)]';
   const headText = fitWidth
     ? 'text-[10px] sm:text-[clamp(0.66rem,1.65svh,0.9rem)]'
     : 'text-[13px] sm:text-[clamp(0.66rem,1.65svh,0.9rem)]';
@@ -80,10 +90,12 @@ export default function TimelineCalendar({
         // Row 1 is the weekday header; each week then takes a dates row followed
         // by one row per lane. Absolute indices let every cell live in one grid.
         let cursor = 1;
+        const rowSizes = [HEADER_ROW];
         const weekRows = block.weeks.map((week) => {
           const dateRow = cursor + 1;
           const laneStart = dateRow + 1;
           cursor = laneStart + week.laneCount - 1;
+          rowSizes.push(DATE_ROW, ...Array<string>(week.laneCount).fill(LANE_ROW));
           return { week, dateRow, laneStart };
         });
 
@@ -110,7 +122,7 @@ export default function TimelineCalendar({
 
                 <div
                   className="grid min-h-0 flex-1 grid-cols-7"
-                  style={{ gridTemplateRows: `repeat(${cursor}, ${GRID_ROW_SIZE})` }}
+                  style={{ gridTemplateRows: rowSizes.join(' ') }}
                 >
                   {WEEKDAY_HEADERS.map((label, i) => (
                     <div
@@ -159,7 +171,7 @@ export default function TimelineCalendar({
                             key={`${p.task.id}-${si}`}
                             onClick={() => onSelectTask(p.task.id)}
                             title={`${p.task.name} · ${formatDate(p.task.start)} → ${formatDate(p.task.end)}`}
-                            className={`flex items-center justify-center overflow-hidden border border-neutral-300 px-0.5 font-bold leading-none sm:px-1 dark:border-neutral-700 ${blockText} ${
+                            className={`flex flex-col items-center justify-center overflow-hidden border border-neutral-300 px-0.5 leading-tight sm:px-1 dark:border-neutral-700 ${
                               selectedTaskId === p.task.id ? 'ring-2 ring-inset ring-blue-600' : ''
                             }`}
                             style={{
@@ -169,7 +181,14 @@ export default function TimelineCalendar({
                               color: p.textColor,
                             }}
                           >
-                            <span className="truncate">{p.task.name}</span>
+                            <span className={`w-full truncate font-bold ${nameText}`}>
+                              {p.task.name}
+                            </span>
+                            {p.task.note && (
+                              <span className={`w-full truncate italic opacity-80 ${noteText}`}>
+                                {p.task.note}
+                              </span>
+                            )}
                           </button>
                         )),
                       )}

@@ -78,7 +78,7 @@ export async function buildWorkbook(opts: {
       cell.border = thinBorder();
       const sundayColumn = c === COLS - 1;
       cell.fill = solidFill(sundayColumn ? OFF_FILL : HEADER_FILL);
-      cell.font = { bold: false, color: { argb: argb(sundayColumn ? OFF_TEXT : '000000') } };
+      cell.font = { bold: false, size: 9, color: { argb: argb(sundayColumn ? OFF_TEXT : '000000') } };
     }
     r += 1;
 
@@ -92,18 +92,24 @@ export async function buildWorkbook(opts: {
         cell.value = day.day ?? null;
         cell.alignment = centered();
         cell.border = thinBorder();
-        if (day.date && day.isOff) {
-          cell.fill = solidFill(OFF_FILL);
-          cell.font = { color: { argb: argb(OFF_TEXT) } };
-        }
+        // Smaller than the task name: the name is what the sheet is read for.
+        cell.font = {
+          size: 9,
+          color: { argb: argb(day.date && day.isOff ? OFF_TEXT : '000000') },
+        };
+        if (day.date && day.isOff) cell.fill = solidFill(OFF_FILL);
       }
       r += 1;
 
       // Lane rows holding the task blocks
       const laneStart = r;
+      // A note adds a second line inside the cell, so that lane needs the height.
+      const laneHasNote = new Set(
+        week.placed.filter((p) => p.task.note?.trim()).map((p) => p.lane),
+      );
       for (let lane = 0; lane < week.laneCount; lane += 1) {
         const laneRow = ws.getRow(laneStart + lane);
-        laneRow.height = 18;
+        laneRow.height = laneHasNote.has(lane) ? 30 : 20;
         for (let c = 0; c < COLS; c += 1) {
           const cell = ws.getCell(laneStart + lane, c + 1);
           cell.border = thinBorder();
@@ -119,10 +125,20 @@ export async function buildWorkbook(opts: {
             ws.mergeCells(row, seg.startCol + 1, row, seg.endCol + 1);
           }
           const cell = ws.getCell(row, seg.startCol + 1);
-          cell.value = placed.task.name;
+          const note = placed.task.note?.trim();
+          const textColor = { argb: argb(placed.textColor) };
+
+          cell.value = note
+            ? {
+                richText: [
+                  { text: placed.task.name, font: { bold: true, size: 11, color: textColor } },
+                  { text: `\n${note}`, font: { italic: true, size: 9, color: textColor } },
+                ],
+              }
+            : placed.task.name;
           cell.fill = solidFill(placed.color);
-          cell.font = { bold: true, size: 10, color: { argb: argb(placed.textColor) } };
-          cell.alignment = centered();
+          cell.font = { bold: true, size: 11, color: textColor };
+          cell.alignment = { ...centered(), wrapText: Boolean(note) };
           cell.border = thinBorder();
         }
       }

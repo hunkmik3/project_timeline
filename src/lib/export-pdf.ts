@@ -27,12 +27,13 @@ const clamp = (min: number, value: number, max: number) => Math.min(max, Math.ma
  */
 const FONT_DIR = path.join(process.cwd(), 'public', 'fonts');
 
-let cached: { regular: Buffer; bold: Buffer } | null = null;
+let cached: { regular: Buffer; bold: Buffer; italic: Buffer } | null = null;
 function fonts() {
   if (!cached) {
     cached = {
       regular: fs.readFileSync(path.join(FONT_DIR, 'BeVietnamPro-Regular.ttf')),
       bold: fs.readFileSync(path.join(FONT_DIR, 'BeVietnamPro-Bold.ttf')),
+      italic: fs.readFileSync(path.join(FONT_DIR, 'BeVietnamPro-Italic.ttf')),
     };
   }
   return cached;
@@ -46,11 +47,12 @@ export async function buildPdf(opts: {
   isOff: OffDayResolver;
 }): Promise<Buffer> {
   const { title, blocks, tasks, categories, isOff } = opts;
-  const { regular, bold } = fonts();
+  const { regular, bold, italic } = fonts();
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: MARGIN });
   doc.registerFont('body', regular);
   doc.registerFont('bold', bold);
+  doc.registerFont('italic', italic);
   doc.info.Title = title;
 
   const chunks: Buffer[] = [];
@@ -69,14 +71,14 @@ export async function buildPdf(opts: {
     y: number,
     w: number,
     h: number,
-    o: { fill?: string; color?: string; size?: number; bold?: boolean } = {},
+    o: { fill?: string; color?: string; size?: number; font?: 'body' | 'bold' | 'italic' } = {},
   ) => {
     if (o.fill) doc.rect(x, y, w, h).fill(o.fill);
     doc.rect(x, y, w, h).lineWidth(0.5).stroke(BORDER);
     if (!text) return;
     const size = o.size ?? 8;
     doc
-      .font(o.bold ? 'bold' : 'body')
+      .font(o.font ?? 'body')
       .fontSize(size)
       .fillColor(o.color ?? '#000000')
       .text(text, x + 2, y + (h - size) / 2 - 1, {
@@ -115,36 +117,46 @@ export async function buildPdf(opts: {
     top += 24;
 
     // One row for the weekday header, then per week a dates row plus its lanes.
-    const totalRows = 1 + block.weeks.reduce((n, w) => n + 1 + w.laneCount, 0);
-    const rowH = Math.min(MAX_ROW_HEIGHT, (pageH - MARGIN - top) / totalRows);
-    const daySize = clamp(6.5, rowH * 0.34, 11);
-    const blockSize = clamp(6, rowH * 0.3, 10);
+    // Lane rows carry the task name and its note, so they take the bigger
+    // share; date rows only hold a number.
+    const LANE_RATIO = 1.35 / 0.85;
+    const dateRows = 1 + block.weeks.length;
+    const laneRows = block.weeks.reduce((n, w) => n + w.laneCount, 0);
+    const unit = Math.min(
+      MAX_ROW_HEIGHT / LANE_RATIO,
+      (pageH - MARGIN - top) / (dateRows + laneRows * LANE_RATIO),
+    );
+    const dateH = unit;
+    const laneH = unit * LANE_RATIO;
+    const daySize = clamp(6, dateH * 0.42, 10);
+    const nameSize = clamp(6.5, laneH * 0.36, 12);
+    const noteSize = clamp(5.5, laneH * 0.26, 9);
 
     WEEKDAY_HEADERS.forEach((label, i) => {
       const sunday = i === COLS - 1;
-      cell(label, MARGIN + i * colW, top, colW, rowH, {
+      cell(label, MARGIN + i * colW, top, colW, dateH, {
         fill: sunday ? OFF_FILL : HEADER_FILL,
         color: sunday ? '#FFFFFF' : '#000000',
         size: daySize,
       });
     });
 
-    let y = top + rowH;
+    let y = top + dateH;
 
     for (const week of block.weeks) {
       week.days.forEach((day, i) => {
-        cell(day.day ? String(day.day) : '', MARGIN + i * colW, y, colW, rowH, {
+        cell(day.day ? String(day.day) : '', MARGIN + i * colW, y, colW, dateH, {
           fill: day.date && day.isOff ? OFF_FILL : undefined,
           color: day.date && day.isOff ? '#FFFFFF' : '#333333',
           size: daySize,
         });
       });
-      y += rowH;
+      y += dateH;
 
       const laneTop = y;
       for (let lane = 0; lane < week.laneCount; lane += 1) {
         week.days.forEach((day, i) => {
-          cell('', MARGIN + i * colW, laneTop + lane * rowH, colW, rowH, {
+          cell('', MARGIN + i * colW, laneTop + lane * laneH, colW, laneH, {
             fill: day.date && day.isOff ? OFF_FILL : undefined,
           });
         });
@@ -154,16 +166,44 @@ export async function buildPdf(opts: {
         for (const seg of placed.segments) {
           const x = MARGIN + seg.startCol * colW;
           const w = (seg.endCol - seg.startCol + 1) * colW;
-          cell(placed.task.name, x, laneTop + placed.lane * rowH, w, rowH, {
-            fill: placed.color,
-            color: placed.textColor,
-            size: blockSize,
-            bold: true,
-          });
+          const boxY = laneTop + placed.lane * laneH;
+          const note = placed.task.note?.trim();
+
+          cell('', x, boxY, w, laneH, { fill: placed.color });
+
+          const lineH = note ? nameSize + noteSize + 2 : nameSize;
+          let ty = boxY + (laneH - lineH) / 2 - 1;
+
+          doc
+            .font('bold')
+            .fontSize(nameSize)
+            .fillColor(placed.textColor)
+            .text(placed.task.name, x + 2, ty, {
+              width: w - 4,
+              align: 'center',
+              lineBreak: false,
+              ellipsis: true,
+            });
+
+          if (note) {
+            ty += nameSize + 2;
+            doc
+              .font('italic')
+              .fontSize(noteSize)
+              .fillColor(placed.textColor)
+              .opacity(0.8)
+              .text(note, x + 2, ty, {
+                width: w - 4,
+                align: 'center',
+                lineBreak: false,
+                ellipsis: true,
+              })
+              .opacity(1);
+          }
         }
       }
 
-      y = laneTop + week.laneCount * rowH;
+      y = laneTop + week.laneCount * laneH;
     }
   });
 
@@ -187,7 +227,7 @@ export async function buildPdf(opts: {
     const rowH = 18;
     let x = MARGIN;
     cols.forEach((c) => {
-      cell(c.label, x, y, c.w, rowH, { fill: '#D9D9D9', bold: true });
+      cell(c.label, x, y, c.w, rowH, { fill: '#D9D9D9', font: 'bold' });
       x += c.w;
     });
     y += rowH;

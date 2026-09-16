@@ -32,6 +32,10 @@ grid, with days off and public holidays already marked, before any task exists.
 
 **Click any block** on the calendar to edit or delete that task.
 
+A task's note shows on the block itself, in italics under the name. The name is
+set larger than the date numbers — it is what the calendar is read for. Notes
+carry through to both exports.
+
 **Days off**
 
 - Sunday is off by default. Tap `Sat` to take the whole weekend.
