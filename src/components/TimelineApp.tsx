@@ -476,17 +476,20 @@ export default function TimelineApp() {
         </div>
       )}
 
-      <main className="min-h-0 flex-1 overflow-auto p-3 lg:p-6">
-        <div className="mx-auto max-w-5xl overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-[#151518]">
-          <TimelineCalendar
-            blocks={blocks}
-            title={project.title}
-            selectedTaskId={editing?.task.id ?? null}
-            onSelectTask={openTask}
-            onAddTask={openNewTask}
-            fitWidth={fitWidth}
-          />
-        </div>
+      {/* Owns the vertical scroll and the snap points, so each month comes to
+          rest filling the screen instead of stopping halfway. */}
+      <main
+        id="timeline-print"
+        className="min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto scroll-smooth"
+      >
+        <TimelineCalendar
+          blocks={blocks}
+          title={project.title}
+          selectedTaskId={editing?.task.id ?? null}
+          onSelectTask={openTask}
+          onAddTask={openNewTask}
+          fitWidth={fitWidth}
+        />
       </main>
 
       <TaskDialog

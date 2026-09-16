@@ -14,9 +14,10 @@ npm run dev      # http://localhost:3000
 
 The calendar is the whole page. Everything else opens in a dialog.
 
-**Months** — every month sits on one scrolling page, the way the original
-spreadsheet looked. Scroll down for later months, up for earlier ones. The page
-opens scrolled to the current month, and **Today** brings you back to it.
+**Months** — one month fills the screen at a time. Scrolling snaps: it comes to
+rest on a month boundary rather than halfway through one. Scroll down for later
+months, up for earlier ones. The page opens on the current month, and **Today**
+brings you back to it.
 
 The range covers the work plus two months before and six after, so there is
 always an empty month to scroll into and fill in. Those months draw the full

@@ -12,6 +12,18 @@ const SUPABASE_ANON_KEY =
 
 export const TABLE = 'timeline_projects';
 
+/**
+ * Identifies this browser tab's writes. Supabase echoes every change back over
+ * realtime, including our own: applying that echo replays an older snapshot and
+ * silently drops anything edited while the save was in flight. Stamping the
+ * payload lets the subscription ignore its own writes.
+ */
+const CLIENT_ID =
+  typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Math.random());
+
+/** Carried inside the jsonb payload, stripped again by normalizeProject. */
+type StoredProject = ProjectState & { _clientId?: string };
+
 export type StorageMode = 'local' | 'supabase';
 
 /** With keys it runs on the shared DB, without them it falls back to localStorage. */
@@ -115,7 +127,12 @@ export async function saveProject(slug: string, state: ProjectState): Promise<vo
   const { error } = await supabase()
     .from(TABLE)
     .upsert(
-      { slug, title: state.title, data: state, updated_at: new Date().toISOString() },
+      {
+        slug,
+        title: state.title,
+        data: { ...state, _clientId: CLIENT_ID } satisfies StoredProject,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: 'slug' },
     );
 
@@ -135,8 +152,11 @@ export function subscribeProject(
       'postgres_changes',
       { event: '*', schema: 'public', table: TABLE, filter: `slug=eq.${slug}` },
       (payload) => {
-        const row = payload.new as { data?: unknown } | null;
-        if (row?.data) onChange(normalizeProject(row.data));
+        const data = (payload.new as { data?: StoredProject } | null)?.data;
+        if (!data) return;
+        // Our own write coming back — applying it would undo newer local edits.
+        if (data._clientId === CLIENT_ID) return;
+        onChange(normalizeProject(data));
       },
     )
     .subscribe();

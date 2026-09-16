@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import type { MonthBlock } from '@/lib/calendar';
 import { WEEKDAY_HEADERS, formatDate } from '@/lib/date';
 
@@ -15,6 +16,26 @@ interface Props {
 
 const CELL = 'border border-neutral-300 text-center dark:border-neutral-700';
 
+/**
+ * One month per screen. `h-full` resolves against <main>, which owns the scroll,
+ * and `snap-start` is what makes the scroll come to rest on a month boundary
+ * rather than halfway through one.
+ */
+const SECTION =
+  'flex h-full snap-start flex-col px-3 py-[clamp(0.5rem,1.5svh,1rem)] lg:px-6';
+
+const CARD =
+  'mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-x-auto rounded-lg border border-neutral-200 bg-white p-[clamp(0.6rem,1.8svh,1.25rem)] shadow-sm dark:border-neutral-800 dark:bg-[#151518]';
+
+/**
+ * Every row of the month — the weekday header, each week's dates and each lane
+ * under it — shares one grid so `1fr` can stretch them to fill the screen. A
+ * month with five weeks and a month with six both end up exactly one screen
+ * tall, which is what keeps snapping honest. The floor stops a busy month from
+ * squeezing rows into illegibility; past that the card scrolls instead.
+ */
+const GRID_ROW_SIZE = 'minmax(1.05rem, 1fr)';
+
 export default function TimelineCalendar({
   blocks,
   title,
@@ -24,116 +45,142 @@ export default function TimelineCalendar({
   fitWidth,
 }: Props) {
   // Fitting the width leaves ~50px per column on a phone, so the type shrinks too.
-  const dayText = fitWidth ? 'text-[11px] lg:text-[13px]' : 'text-[13px]';
-  const blockText = fitWidth ? 'text-[9px] lg:text-[11px]' : 'text-[11px]';
-  const headText = fitWidth ? 'text-[10px] lg:text-[13px]' : 'text-[13px]';
+  const dayText = fitWidth
+    ? 'text-[11px] sm:text-[clamp(0.72rem,1.8svh,1rem)]'
+    : 'text-[13px] sm:text-[clamp(0.72rem,1.8svh,1rem)]';
+  const blockText = fitWidth
+    ? 'text-[9px] sm:text-[clamp(0.6rem,1.45svh,0.82rem)]'
+    : 'text-[11px] sm:text-[clamp(0.6rem,1.45svh,0.82rem)]';
+  const headText = fitWidth
+    ? 'text-[10px] sm:text-[clamp(0.66rem,1.65svh,0.9rem)]'
+    : 'text-[13px] sm:text-[clamp(0.66rem,1.65svh,0.9rem)]';
 
   if (blocks.length === 0) {
     return (
-      <div className="p-8 text-center sm:p-12">
-        <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
-          No tasks yet. Add one and the calendar builds itself.
-        </p>
-        <button
-          type="button"
-          onClick={onAddTask}
-          className="rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-        >
-          + Add task
-        </button>
-      </div>
+      <section className={SECTION}>
+        <div className={`${CARD} items-center justify-center text-center`}>
+          <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+            No tasks yet. Add one and the calendar builds itself.
+          </p>
+          <button
+            type="button"
+            onClick={onAddTask}
+            className="rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+          >
+            + Add task
+          </button>
+        </div>
+      </section>
     );
   }
 
   return (
-    // Zoomed mode sets a min width so block labels stay readable and the view
-    // scrolls sideways. Desktop is always wide enough, so no min width there.
-    <div
-      id="timeline-print"
-      className={`bg-white p-3 sm:p-6 dark:bg-[#151518] ${fitWidth ? '' : 'min-w-[680px]'} lg:min-w-0`}
-    >
-      <div className="mb-4 inline-block bg-[#00FF00] px-3 py-1 text-sm font-bold text-black sm:mb-6">
-        {title}
-      </div>
+    <>
+      {blocks.map((block, index) => {
+        // Row 1 is the weekday header; each week then takes a dates row followed
+        // by one row per lane. Absolute indices let every cell live in one grid.
+        let cursor = 1;
+        const weekRows = block.weeks.map((week) => {
+          const dateRow = cursor + 1;
+          const laneStart = dateRow + 1;
+          cursor = laneStart + week.laneCount - 1;
+          return { week, dateRow, laneStart };
+        });
 
-      {blocks.map((block) => (
-        <section key={block.key} id={`m-${block.key}`} className="mb-8 sm:mb-10">
-          <h2 className="mb-3 text-center text-lg font-bold tracking-wide text-neutral-900 sm:text-xl dark:text-neutral-100">
-            {block.label}
-          </h2>
-
-          <div className="grid grid-cols-7">
-            {WEEKDAY_HEADERS.map((label, i) => (
+        return (
+          <section key={block.key} id={`m-${block.key}`} className={SECTION}>
+            <div className={CARD}>
+              {/* Zoomed mode sets a min width so block labels stay readable and
+                  the card scrolls sideways. Desktop is always wide enough. */}
               <div
-                key={label}
-                className={`${CELL} ${headText} py-1 font-medium ${
-                  i === 6 ? 'bg-[#1F4E5A] text-white' : 'bg-[#00FFFF] text-black'
-                }`}
+                className={`flex min-h-0 flex-1 flex-col ${
+                  fitWidth ? '' : 'min-w-[680px]'
+                } lg:min-w-0`}
               >
-                {label}
-              </div>
-            ))}
-          </div>
-
-          {block.weeks.map((week) => (
-            <div key={week.key}>
-              {/* Date numbers */}
-              <div className="grid grid-cols-7">
-                {week.days.map((day, i) => (
-                  <div
-                    key={i}
-                    className={`${CELL} ${dayText} py-1 ${
-                      day.date && day.isOff ? 'bg-[#1F4E5A] text-white' : 'text-neutral-800 dark:text-neutral-300'
-                    } ${day.isToday ? 'font-bold ring-1 ring-inset ring-blue-500' : ''}`}
-                    title={day.offLabel}
-                  >
-                    {day.day ?? ''}
+                {/* The sheet banner belongs at the very top, not above every month. */}
+                {index === 0 && (
+                  <div className="mb-2 inline-block self-start bg-[#00FF00] px-3 py-1 text-sm font-bold text-black">
+                    {title}
                   </div>
-                ))}
-              </div>
+                )}
 
-              {/* Lane rows — task blocks live here */}
-              {Array.from({ length: week.laneCount }, (_, lane) => (
-                <div key={lane} className="grid grid-cols-7">
-                  {week.days.map((day, i) => (
+                <h2 className="mb-[clamp(0.35rem,1.2svh,1rem)] shrink-0 text-center text-[clamp(1.05rem,3.4svh,2rem)] font-bold tracking-wide text-neutral-900 dark:text-neutral-100">
+                  {block.label}
+                </h2>
+
+                <div
+                  className="grid min-h-0 flex-1 grid-cols-7"
+                  style={{ gridTemplateRows: `repeat(${cursor}, ${GRID_ROW_SIZE})` }}
+                >
+                  {WEEKDAY_HEADERS.map((label, i) => (
                     <div
-                      key={i}
-                      className={`${CELL} h-6 ${day.date && day.isOff ? 'bg-[#1F4E5A]' : ''}`}
-                      // Pin to row 1 explicitly so background cells and task
-                      // blocks overlap; auto-placement would push cells down.
-                      style={{ gridColumn: `${i + 1} / span 1`, gridRow: 1 }}
-                    />
+                      key={label}
+                      className={`${CELL} ${headText} flex items-center justify-center font-medium ${
+                        i === 6 ? 'bg-[#1F4E5A] text-white' : 'bg-[#00FFFF] text-black'
+                      }`}
+                      style={{ gridColumn: i + 1, gridRow: 1 }}
+                    >
+                      {label}
+                    </div>
                   ))}
 
-                  {week.placed
-                    .filter((p) => p.lane === lane)
-                    .flatMap((p) =>
-                      p.segments.map((seg, si) => (
-                        <button
-                          type="button"
-                          key={`${p.task.id}-${si}`}
-                          onClick={() => onSelectTask(p.task.id)}
-                          title={`${p.task.name} · ${formatDate(p.task.start)} → ${formatDate(p.task.end)}`}
-                          className={`flex h-6 items-center justify-center overflow-hidden border border-neutral-300 px-0.5 font-bold leading-none sm:px-1 dark:border-neutral-700 ${blockText} ${
-                            selectedTaskId === p.task.id ? 'ring-2 ring-inset ring-blue-600' : ''
-                          }`}
-                          style={{
-                            gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
-                            gridRow: 1,
-                            backgroundColor: p.color,
-                            color: p.textColor,
-                          }}
+                  {weekRows.map(({ week, dateRow, laneStart }) => (
+                    <Fragment key={week.key}>
+                      {week.days.map((day, i) => (
+                        <div
+                          key={`d${i}`}
+                          className={`${CELL} ${dayText} flex items-center justify-center ${
+                            day.date && day.isOff
+                              ? 'bg-[#1F4E5A] text-white'
+                              : 'text-neutral-800 dark:text-neutral-300'
+                          } ${day.isToday ? 'font-bold ring-1 ring-inset ring-blue-500' : ''}`}
+                          style={{ gridColumn: i + 1, gridRow: dateRow }}
+                          title={day.offLabel}
                         >
-                          <span className="truncate">{p.task.name}</span>
-                        </button>
-                      )),
-                    )}
+                          {day.day ?? ''}
+                        </div>
+                      ))}
+
+                      {/* Lane backgrounds, drawn before the blocks that sit on top. */}
+                      {Array.from({ length: week.laneCount }, (_, lane) =>
+                        week.days.map((day, i) => (
+                          <div
+                            key={`l${lane}-${i}`}
+                            className={`${CELL} ${day.date && day.isOff ? 'bg-[#1F4E5A]' : ''}`}
+                            style={{ gridColumn: i + 1, gridRow: laneStart + lane }}
+                          />
+                        )),
+                      )}
+
+                      {week.placed.flatMap((p) =>
+                        p.segments.map((seg, si) => (
+                          <button
+                            type="button"
+                            key={`${p.task.id}-${si}`}
+                            onClick={() => onSelectTask(p.task.id)}
+                            title={`${p.task.name} · ${formatDate(p.task.start)} → ${formatDate(p.task.end)}`}
+                            className={`flex items-center justify-center overflow-hidden border border-neutral-300 px-0.5 font-bold leading-none sm:px-1 dark:border-neutral-700 ${blockText} ${
+                              selectedTaskId === p.task.id ? 'ring-2 ring-inset ring-blue-600' : ''
+                            }`}
+                            style={{
+                              gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
+                              gridRow: laneStart + p.lane,
+                              backgroundColor: p.color,
+                              color: p.textColor,
+                            }}
+                          >
+                            <span className="truncate">{p.task.name}</span>
+                          </button>
+                        )),
+                      )}
+                    </Fragment>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          ))}
-        </section>
-      ))}
-    </div>
+          </section>
+        );
+      })}
+    </>
   );
 }
