@@ -22,10 +22,10 @@ const CELL = 'border border-neutral-300 text-center dark:border-neutral-700';
  * rather than halfway through one.
  */
 const SECTION =
-  'flex h-full snap-start flex-col px-3 py-[clamp(0.5rem,1.5svh,1rem)] lg:px-6';
+  'flex h-full snap-start flex-col justify-center px-2 py-[clamp(0.5rem,1.5svh,1rem)] sm:px-4 lg:px-6';
 
 const CARD =
-  'mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-x-auto rounded-lg border border-neutral-200 bg-white p-[clamp(0.6rem,1.8svh,1.25rem)] shadow-sm dark:border-neutral-800 dark:bg-[#151518]';
+  'mx-auto flex h-[88%] max-h-full w-full max-w-7xl flex-col overflow-x-auto rounded-lg border border-neutral-200 bg-white p-[clamp(0.6rem,1.8svh,1.25rem)] shadow-sm dark:border-neutral-800 dark:bg-[#151518]';
 
 /**
  * Every row of the month — the weekday header, each week's dates and each lane
@@ -34,7 +34,7 @@ const CARD =
  * tall, which is what keeps snapping honest. The floor stops a busy month from
  * squeezing rows into illegibility; past that the card scrolls instead.
  */
-const GRID_ROW_SIZE = 'minmax(1.05rem, 1fr)';
+const GRID_ROW_SIZE = 'minmax(0.95rem, 1fr)';
 
 export default function TimelineCalendar({
   blocks,
