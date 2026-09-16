@@ -92,6 +92,12 @@ export const WEEKDAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 /** Weekday (0 = Sunday) for column i of the Mon..Sun grid. */
 export const COLUMN_TO_WEEKDAY: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
 
+/** The (year, month) sitting `delta` months from the one this date falls in. */
+export function shiftMonth(s: ISODate, delta: number): { year: number; month: number } {
+  const zero = Number(s.slice(0, 4)) * 12 + (Number(s.slice(5, 7)) - 1) + delta;
+  return { year: Math.floor(zero / 12), month: (zero % 12) + 1 };
+}
+
 /** Every (year, month) pair covering the given date range. */
 export function monthsBetween(start: ISODate, end: ISODate): { year: number; month: number }[] {
   const out: { year: number; month: number }[] = [];

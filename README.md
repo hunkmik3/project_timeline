@@ -14,17 +14,13 @@ npm run dev      # http://localhost:3000
 
 The calendar is the whole page. Everything else opens in a dialog.
 
-**Moving between months** — `‹` and `›` step one month at a time. A green dot on
-an arrow means there is work in that direction. **Today** jumps back to the
-current month; **All** drops the month filter and stacks the whole project in
-one view, the way the original spreadsheet looked.
+**Months** — every month sits on one scrolling page, the way the original
+spreadsheet looked. Scroll down for later months, up for earlier ones. The page
+opens scrolled to the current month, and **Today** brings you back to it.
 
-Paging to a month with nothing in it still draws the full grid, so you can set
-up a new month before any task exists. `+ Add task` pre-fills dates inside the
-month you are looking at, and saving a task dated into another month follows it
-there rather than letting it vanish.
-
-Export always covers the whole project, not just the month on screen.
+The range covers the work plus two months before and six after, so there is
+always an empty month to scroll into and fill in. Those months draw the full
+grid, with days off and public holidays already marked, before any task exists.
 
 **+ Add task** — a task needs three things: a name, a start date and an end date.
 

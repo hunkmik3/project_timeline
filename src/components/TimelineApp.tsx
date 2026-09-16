@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Holiday, OffDaySettings, ProjectState, Task } from '@/lib/types';
 import { buildTimeline, countWorkingDays, makeOffDayResolver, resolveRange } from '@/lib/calendar';
-import { addDays, firstOfMonth, isSaneDate, lastOfMonth, todayISO } from '@/lib/date';
+import { addDays, firstOfMonth, isSaneDate, lastOfMonth, shiftMonth, todayISO } from '@/lib/date';
 import {
   emptyProject,
   loadProject,
@@ -15,7 +15,6 @@ import {
 import TimelineCalendar from './TimelineCalendar';
 import TaskDialog from './TaskDialog';
 import DaysOffDialog from './DaysOffDialog';
-import MonthNav, { monthOf, type YearMonth } from './MonthNav';
 import {
   THEME_LABELS,
   THEME_ORDER,
@@ -33,10 +32,10 @@ interface HolidayMeta {
   fetchedAt: string | null;
 }
 
-function currentMonth(): YearMonth {
-  const d = new Date();
-  return { year: d.getFullYear(), month: d.getMonth() + 1 };
-}
+/** Empty months kept either side of the work, so there is always somewhere to
+ *  scroll into when planning ahead or looking back. */
+const PAD_MONTHS_BEFORE = 2;
+const PAD_MONTHS_AFTER = 6;
 
 /** ?p=<slug> keeps a separate timeline per project in the same app. */
 const subscribeNoop = () => () => {};
@@ -66,8 +65,6 @@ export default function TimelineApp() {
   /** Phones default to fitting the whole month on screen; off means scroll wider. */
   const [fitWidth, setFitWidth] = useState(true);
 
-  const [view, setView] = useState<YearMonth>(currentMonth);
-  const [allMonths, setAllMonths] = useState(false);
   /** Local work found after switching to Supabase, offered for one-click import. */
   const [strandedLocal, setStrandedLocal] = useState<ProjectState | null>(null);
 
@@ -79,25 +76,21 @@ export default function TimelineApp() {
 
   // Skips the first save right after loading, and saves echoed back by realtime.
   const skipNextSave = useRef(true);
+  const didInitialScroll = useRef(false);
+
+  const scrollToToday = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const d = new Date();
+    document
+      .getElementById(`m-${d.getFullYear()}-${d.getMonth() + 1}`)
+      ?.scrollIntoView({ behavior, block: 'start' });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     loadProject(slug)
       .then((data) => {
         if (cancelled) return;
-        if (data) {
-          setProject(data);
-          // Land on a month that actually has work: opening on an empty current
-          // month would look like the project failed to load.
-          const nowMonth = currentMonth();
-          const from = firstOfMonth(nowMonth.year, nowMonth.month);
-          const to = lastOfMonth(nowMonth.year, nowMonth.month);
-          const overlapsNow = data.tasks.some((t) => t.start <= to && t.end >= from);
-          if (!overlapsNow && data.tasks.length > 0) {
-            const earliest = data.tasks.reduce((a, t) => (t.start < a ? t.start : a), data.tasks[0].start);
-            setView(monthOf(earliest));
-          }
-        }
+        if (data) setProject(data);
         // First run against Supabase: the shared row is empty but this browser
         // may still hold the work entered before the switch.
         if (storageMode === 'supabase' && (data?.tasks.length ?? 0) === 0) {
@@ -130,26 +123,28 @@ export default function TimelineApp() {
     [project.tasks, project.rangeStart, project.rangeEnd],
   );
 
-  /** Bounds handed to buildTimeline: one month, or the whole project. */
-  const viewBounds = useMemo(
-    () =>
-      allMonths
-        ? { start: project.rangeStart, end: project.rangeEnd }
-        : { start: firstOfMonth(view.year, view.month), end: lastOfMonth(view.year, view.month) },
-    [allMonths, project.rangeStart, project.rangeEnd, view.year, view.month],
-  );
+  /** Every month on one page: the work, today, and padding to scroll into. */
+  const viewBounds = useMemo(() => {
+    const today = todayISO();
+    const from = shiftMonth(range.start < today ? range.start : today, -PAD_MONTHS_BEFORE);
+    const to = shiftMonth(range.end > today ? range.end : today, PAD_MONTHS_AFTER);
+    return {
+      start: firstOfMonth(from.year, from.month),
+      end: lastOfMonth(to.year, to.month),
+    };
+  }, [range.start, range.end]);
 
-  // Holidays must cover the month being viewed too, not just the task range —
-  // otherwise paging into an empty future year shows no holidays at all.
+  // Holidays must cover the padded months too, not just the task range —
+  // otherwise scrolling into an empty future year shows no holidays at all.
   const years = useMemo(() => {
-    const from = Math.min(Number(range.start.slice(0, 4)), view.year);
-    const to = Math.max(Number(range.end.slice(0, 4)), view.year);
+    const from = Number(viewBounds.start.slice(0, 4));
+    const to = Number(viewBounds.end.slice(0, 4));
     const list: number[] = [];
     // Capped: a stray year in the data must not turn into a request listing
     // every year since 1970, nor a days-off list nobody can read.
     for (let y = from; y <= to && list.length < 12; y += 1) list.push(y);
     return list;
-  }, [range.start, range.end, view.year]);
+  }, [viewBounds]);
 
   const fetchHolidays = useCallback(async (targetYears: number[], refresh = false) => {
     if (targetYears.length === 0) return;
@@ -203,6 +198,14 @@ export default function TimelineApp() {
     return () => clearTimeout(id);
   }, [project, loaded, slug]);
 
+  // Months run from before the project to well after it, so landing at the very
+  // top would open on an old empty month. Jump to today once, without animating.
+  useEffect(() => {
+    if (!loaded || didInitialScroll.current) return;
+    didInitialScroll.current = true;
+    scrollToToday('instant');
+  }, [loaded, scrollToToday]);
+
   useEffect(() => {
     applyTheme(theme);
     // On "Auto", keep following the OS if the user flips it while this is open.
@@ -219,22 +222,6 @@ export default function TimelineApp() {
       buildTimeline(project.tasks, project.categories, isOff, viewBounds.start, viewBounds.end),
     [project.tasks, project.categories, isOff, viewBounds],
   );
-
-  const monthStart = firstOfMonth(view.year, view.month);
-  const monthEnd = lastOfMonth(view.year, view.month);
-
-  const monthStats = useMemo(() => {
-    let inMonth = 0;
-    let before = false;
-    let after = false;
-    for (const t of project.tasks) {
-      if (!t.start || !t.end) continue;
-      if (t.start <= monthEnd && t.end >= monthStart) inMonth += 1;
-      if (t.end < monthStart) before = true;
-      if (t.start > monthEnd) after = true;
-    }
-    return { inMonth, before, after };
-  }, [project.tasks, monthStart, monthEnd]);
 
   /** Tasks that render nowhere — otherwise there is no way back to them. */
   const hiddenTasks = useMemo(
@@ -255,17 +242,9 @@ export default function TimelineApp() {
     const today = todayISO();
     const sorted = [...project.tasks].sort((a, b) => a.end.localeCompare(b.end));
     const last = sorted[sorted.length - 1];
-    // Chain onto the previous task when that lands in the month on screen,
-    // otherwise start in the month being looked at — that is the whole point
-    // of paging forward to set up a new month.
-    const chained = last?.end ? addDays(last.end, 1) : today;
-    const start = allMonths
-      ? chained
-      : chained >= monthStart && chained <= monthEnd
-        ? chained
-        : today >= monthStart && today <= monthEnd
-          ? today
-          : monthStart;
+    // Chain onto the end of the last task; everything is on one scrollable page
+    // so there is no "current month" to bias towards.
+    const start = last?.end && isSaneDate(last.end) ? addDays(last.end, 1) : today;
     setEditing({
       isNew: true,
       task: {
@@ -294,11 +273,6 @@ export default function TimelineApp() {
         ? p.tasks.map((t) => (t.id === task.id ? task : t))
         : [...p.tasks, task],
     }));
-    // Follow the task if it was dated into another month, otherwise saving
-    // would look like the task disappeared.
-    if (!allMonths && (task.end < monthStart || task.start > monthEnd)) {
-      setView(monthOf(task.start));
-    }
     setEditing(null);
   };
 
@@ -409,6 +383,13 @@ export default function TimelineApp() {
           </button>
           <button
             type="button"
+            onClick={() => scrollToToday()}
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Today
+          </button>
+          <button
+            type="button"
             onClick={() => setDaysOffOpen(true)}
             className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
@@ -439,16 +420,6 @@ export default function TimelineApp() {
             {exporting ? 'Exporting…' : 'Export Excel'}
           </button>
         </div>
-
-        <MonthNav
-          view={view}
-          allMonths={allMonths}
-          hasTasksBefore={monthStats.before}
-          hasTasksAfter={monthStats.after}
-          taskCount={monthStats.inMonth}
-          onChange={setView}
-          onToggleAll={setAllMonths}
-        />
       </header>
 
       {error && (

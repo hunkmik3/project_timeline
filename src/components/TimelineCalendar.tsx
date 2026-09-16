@@ -57,7 +57,7 @@ export default function TimelineCalendar({
       </div>
 
       {blocks.map((block) => (
-        <section key={block.key} className="mb-8 sm:mb-10">
+        <section key={block.key} id={`m-${block.key}`} className="mb-8 sm:mb-10">
           <h2 className="mb-3 text-center text-lg font-bold tracking-wide text-neutral-900 sm:text-xl dark:text-neutral-100">
             {block.label}
           </h2>
