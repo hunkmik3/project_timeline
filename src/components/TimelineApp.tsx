@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Holiday, ISODate, OffDaySettings, ProjectState, Task, TaskPreset } from '@/lib/types';
 import { buildTimeline, countWorkingDays, makeOffDayResolver, resolveRange } from '@/lib/calendar';
+import { applyEditWithDependents, shiftWithDependents } from '@/lib/dependencies';
 import {
   addDays,
   firstOfMonth,
@@ -282,6 +283,7 @@ export default function TimelineApp() {
         textColor: preset?.textColor ?? null,
         note: '',
         order: project.tasks.length,
+        dependsOn: [],
       },
     });
   };
@@ -303,38 +305,38 @@ export default function TimelineApp() {
    */
   const moveTasks = (ids: string[], deltaDays: number) => {
     if (deltaDays === 0 || ids.length === 0) return;
-    const moving = new Set(ids);
-    const affected = project.tasks.filter((t) => moving.has(t.id));
-    const shifted = affected.map((t) => ({
-      start: addDays(t.start, deltaDays),
-      end: addDays(t.end, deltaDays),
-    }));
-    if (shifted.some((r) => !isSaneDate(r.start) || !isSaneDate(r.end))) {
+    // Whatever waits on these tasks travels with them, by the same number of
+    // days, so the gaps between linked work survive the move.
+    const next = shiftWithDependents(project.tasks, ids, deltaDays);
+    if (!next) {
       setError('That move would push a task outside the supported dates.');
       return;
     }
-    setProject((p) => ({
-      ...p,
-      tasks: p.tasks.map((t) =>
-        moving.has(t.id)
-          ? { ...t, start: addDays(t.start, deltaDays), end: addDays(t.end, deltaDays) }
-          : t,
-      ),
-    }));
+    setProject((p) => ({ ...p, tasks: next }));
   };
 
   const saveTask = (task: Task) => {
-    setProject((p) => ({
-      ...p,
-      tasks: p.tasks.some((t) => t.id === task.id)
-        ? p.tasks.map((t) => (t.id === task.id ? task : t))
-        : [...p.tasks, task],
-    }));
+    const previousEnd = project.tasks.find((t) => t.id === task.id)?.end ?? null;
+    const next = applyEditWithDependents(project.tasks, task, previousEnd);
+    if (!next) {
+      setError('That change would push a dependent task outside the supported dates.');
+      return;
+    }
+    setProject((p) => ({ ...p, tasks: next }));
     setEditing(null);
   };
 
   const deleteTask = (id: string) => {
-    setProject((p) => ({ ...p, tasks: p.tasks.filter((t) => t.id !== id) }));
+    setProject((p) => ({
+      ...p,
+      // Also unlink it: a dependency pointing at a deleted task is a dangling
+      // reference that would quietly stop propagating.
+      tasks: p.tasks
+        .filter((t) => t.id !== id)
+        .map((t) =>
+          t.dependsOn.includes(id) ? { ...t, dependsOn: t.dependsOn.filter((d) => d !== id) } : t,
+        ),
+    }));
     setSelectedIds((ids) => ids.filter((x) => x !== id));
     setEditing(null);
   };
@@ -560,6 +562,7 @@ export default function TimelineApp() {
           blocks={blocks}
           categories={project.categories}
           library={project.taskLibrary}
+          allTasks={project.tasks}
           title={project.title}
           selectedIds={selectedIds}
           onSelectTask={openTask}
@@ -578,6 +581,7 @@ export default function TimelineApp() {
         isNew={editing?.isNew ?? false}
         categories={project.categories}
         library={project.taskLibrary}
+        allTasks={project.tasks}
         isOff={isOff}
         onClose={() => setEditing(null)}
         onSave={saveTask}

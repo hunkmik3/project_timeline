@@ -23,6 +23,11 @@ export interface Task {
   textColor: string | null;
   note: string;
   order: number;
+  /**
+   * Tasks this one waits for: it starts once they have finished. Moving one of
+   * them carries this task along by the same number of days.
+   */
+  dependsOn: string[];
 }
 
 /**

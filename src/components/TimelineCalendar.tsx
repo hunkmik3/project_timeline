@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useRef, useState } from 'react';
 import type { MonthBlock } from '@/lib/calendar';
-import type { ISODate, TaskCategory, TaskPreset } from '@/lib/types';
+import type { ISODate, Task, TaskCategory, TaskPreset } from '@/lib/types';
 import MonthTaskPanel from './MonthTaskPanel';
 import { WEEKDAY_HEADERS, addDays, daysBetween, formatDate } from '@/lib/date';
 
@@ -11,6 +11,8 @@ interface Props {
   categories: TaskCategory[];
   /** Names from Task list, shown in each month's panel. */
   library: TaskPreset[];
+  /** Whole project, for resolving dependency names shown in the panel. */
+  allTasks: Task[];
   title: string;
   /** Every task currently picked out — one from a click, more via Alt-click. */
   selectedIds: string[];
@@ -73,6 +75,7 @@ export default function TimelineCalendar({
   blocks,
   categories,
   library,
+  allTasks,
   title,
   selectedIds,
   onSelectTask,
@@ -278,6 +281,7 @@ export default function TimelineCalendar({
                 <MonthTaskPanel
                   library={library}
                   tasks={block.tasks}
+                  allTasks={allTasks}
                   categories={categories}
                   selectedIds={selectedIds}
                   onSelectTask={onSelectTask}

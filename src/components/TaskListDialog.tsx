@@ -32,6 +32,7 @@ function previewColors(preset: TaskPreset, categories: TaskCategory[]) {
       textColor: preset.textColor,
       note: '',
       order: 0,
+      dependsOn: [],
     },
     categories,
   );

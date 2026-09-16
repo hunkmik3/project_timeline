@@ -76,6 +76,7 @@ export function normalizeProject(raw: unknown): ProjectState {
           textColor: t.textColor ?? null,
           note: t.note ?? '',
           order: t.order ?? i,
+          dependsOn: Array.isArray(t.dependsOn) ? t.dependsOn : [],
         }))
       : [],
     categories: Array.isArray(p.categories) && p.categories.length > 0 ? p.categories : base.categories,

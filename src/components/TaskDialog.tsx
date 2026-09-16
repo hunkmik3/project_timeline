@@ -4,7 +4,8 @@ import { useState } from 'react';
 import type { OffDayResolver, Task, TaskCategory, TaskPreset } from '@/lib/types';
 import { countWorkingDays, effectiveCategoryId, resolveTaskColors } from '@/lib/calendar';
 import { SWATCHES, readableTextColor } from '@/lib/presets';
-import { MAX_DATE, MAX_YEAR, MIN_DATE, MIN_YEAR, isSaneDate } from '@/lib/date';
+import { MAX_DATE, MAX_YEAR, MIN_DATE, MIN_YEAR, formatRangeShort, isSaneDate } from '@/lib/date';
+import { brokenLinks, wouldCycle } from '@/lib/dependencies';
 import { NO_AUTOFILL } from '@/lib/form';
 import Modal from './Modal';
 
@@ -15,6 +16,8 @@ interface Props {
   categories: TaskCategory[];
   /** Names set up in advance; empty means type the name freehand. */
   library: TaskPreset[];
+  /** Every task in the project — the pool this one can be made to wait for. */
+  allTasks: Task[];
   isOff: OffDayResolver;
   onClose: () => void;
   onSave: (task: Task) => void;
@@ -33,6 +36,7 @@ export default function TaskDialog({
   isNew,
   categories,
   library,
+  allTasks,
   isOff,
   onClose,
   onSave,
@@ -60,6 +64,7 @@ export default function TaskDialog({
   );
   const missingName = draft.name.trim() === '';
   const workingDays = countWorkingDays(draft, isOff);
+  const violations = brokenLinks(draft, allTasks);
   const canSave =
     !invalidRange && !outOfRange && !missingName && Boolean(draft.start && draft.end);
 
@@ -260,6 +265,39 @@ export default function TaskDialog({
               By type
             </button>
           </div>
+        </div>
+
+        <div>
+          <label className={labelCls} htmlFor="task-after">
+            Starts after
+          </label>
+          <select
+            id="task-after"
+            value={draft.dependsOn[0] ?? ''}
+            onChange={(e) => patch({ dependsOn: e.target.value ? [e.target.value] : [] })}
+            className={inputCls}
+          >
+            <option value="">— nothing, it stands alone —</option>
+            {allTasks
+              // Itself, and anything already waiting on it, would close a loop.
+              .filter((t) => t.id !== draft.id && !wouldCycle(draft.id, t.id, allTasks))
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} · {formatRangeShort(t.start, t.end)}
+                </option>
+              ))}
+          </select>
+          {violations.length > 0 && (
+            <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+              Starts on or before {violations.map((t) => t.name).join(', ')} finishes. Saved either
+              way — moving {violations.length === 1 ? 'it' : 'them'} will carry this along.
+            </p>
+          )}
+          {draft.dependsOn.length > 0 && violations.length === 0 && (
+            <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+              Moving that task moves this one by the same number of days.
+            </p>
+          )}
         </div>
 
         <div>

@@ -9,6 +9,8 @@ interface Props {
   library: TaskPreset[];
   /** Everything landing in this month, whether it was drawn or not. */
   tasks: Task[];
+  /** The whole project — a dependency may point outside this month. */
+  allTasks: Task[];
   categories: TaskCategory[];
   selectedIds: string[];
   onSelectTask: (id: string) => void;
@@ -32,6 +34,7 @@ function presetColor(preset: TaskPreset, categories: TaskCategory[]) {
       textColor: preset.textColor,
       note: '',
       order: 0,
+      dependsOn: [],
     },
     categories,
   );
@@ -43,6 +46,7 @@ const ROW =
 export default function MonthTaskPanel({
   library,
   tasks,
+  allTasks,
   categories,
   selectedIds,
   onSelectTask,
@@ -50,6 +54,8 @@ export default function MonthTaskPanel({
   onAddNamed,
 }: Props) {
   const selected = new Set(selectedIds);
+  /** Dependencies are stored as ids; the panel needs the name behind one. */
+  const nameOf = (id: string) => allTasks.find((t) => t.id === id)?.name ?? '(deleted)';
   const claimed = new Set<string>();
 
   /**
@@ -103,6 +109,11 @@ export default function MonthTaskPanel({
         <span className="block truncate text-[11px] leading-tight text-neutral-500 dark:text-neutral-400">
           {task ? formatRangeShort(task.start, task.end) : 'not scheduled'}
         </span>
+        {task && task.dependsOn.length > 0 && (
+          <span className="block truncate text-[10px] leading-tight text-neutral-400 dark:text-neutral-500">
+            ↳ after {task.dependsOn.map((id) => nameOf(id)).join(', ')}
+          </span>
+        )}
         {task?.note && (
           <span className="line-clamp-2 block text-[11px] italic leading-tight text-neutral-400 [overflow-wrap:anywhere] dark:text-neutral-500">
             {task.note}
