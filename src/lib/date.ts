@@ -10,7 +10,27 @@ export function toISO(d: Date): ISODate {
 /** 'YYYY-MM-DD' -> Date at local midnight. */
 export function parseISO(s: ISODate): Date {
   const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  const date = new Date(y, m - 1, d);
+  // new Date(6, …) means 1906, not year 6 — the constructor maps 0-99 into the
+  // 1900s. setFullYear is the only way to express a genuinely small year.
+  date.setFullYear(y);
+  return date;
+}
+
+/**
+ * A date input lets someone type "0006" on the way to "2026", and that value is
+ * submittable. Anything outside this window is a typo, not a plan, and left
+ * unchecked it makes the timeline span centuries.
+ */
+export const MIN_YEAR = 1970;
+export const MAX_YEAR = 2100;
+export const MIN_DATE: ISODate = `${MIN_YEAR}-01-01`;
+export const MAX_DATE: ISODate = `${MAX_YEAR}-12-31`;
+
+export function isSaneDate(s: ISODate | null | undefined): boolean {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const year = Number(s.slice(0, 4));
+  return year >= MIN_YEAR && year <= MAX_YEAR;
 }
 
 export function addDays(s: ISODate, n: number): ISODate {

@@ -43,23 +43,23 @@ export default function Modal({ open, title, onClose, children, footer, wide }: 
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
 
       {/* Bottom sheet on phones, centred card from sm up. */}
       <div
-        className={`relative flex max-h-[88dvh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-xl ${
+        className={`relative flex max-h-[88dvh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-xl dark:bg-[#1b1b1f] dark:ring-1 dark:ring-neutral-700 ${
           wide ? 'sm:max-w-lg' : 'sm:max-w-md'
         }`}
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-800">{title}</h2>
+        <header className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-1 size-8 rounded text-neutral-500 hover:bg-neutral-100"
+            className="-mr-1 size-8 rounded text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
             ✕
           </button>
@@ -69,7 +69,7 @@ export default function Modal({ open, title, onClose, children, footer, wide }: 
 
         {footer && (
           <footer
-            className="flex shrink-0 gap-2 border-t border-neutral-200 px-4 py-3"
+            className="flex shrink-0 gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-700"
             style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
           >
             {footer}

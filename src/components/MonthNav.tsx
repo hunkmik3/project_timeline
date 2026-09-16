@@ -33,7 +33,7 @@ export function isSameMonth(a: YearMonth, b: YearMonth): boolean {
 }
 
 const arrowCls =
-  'relative flex size-9 shrink-0 items-center justify-center rounded border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-30 sm:size-8';
+  'relative flex size-9 shrink-0 items-center justify-center rounded border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-30 sm:size-8 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800';
 
 export default function MonthNav({
   view,
@@ -48,7 +48,7 @@ export default function MonthNav({
   const thisMonth = { year: today.getFullYear(), month: today.getMonth() + 1 };
 
   return (
-    <div className="flex items-center gap-2 border-t border-neutral-100 px-3 py-2 sm:px-4">
+    <div className="flex items-center gap-2 border-t border-neutral-100 px-3 py-2 sm:px-4 dark:border-neutral-800">
       <button
         type="button"
         aria-label="Previous month"
@@ -69,7 +69,7 @@ export default function MonthNav({
           {allMonths ? 'All months' : `${MONTH_NAMES_EN[view.month - 1]} ${view.year}`}
         </div>
         {!allMonths && (
-          <div className="text-[10px] text-neutral-400">
+          <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
             {taskCount === 0 ? 'no tasks' : `${taskCount} task${taskCount > 1 ? 's' : ''}`}
           </div>
         )}
@@ -95,7 +95,7 @@ export default function MonthNav({
           onChange(thisMonth);
         }}
         disabled={!allMonths && isSameMonth(view, thisMonth)}
-        className="ml-auto shrink-0 rounded border border-neutral-300 px-2.5 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-30 sm:py-1.5"
+        className="ml-auto shrink-0 rounded border border-neutral-300 px-2.5 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-30 sm:py-1.5 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
       >
         Today
       </button>
@@ -105,8 +105,8 @@ export default function MonthNav({
         onClick={() => onToggleAll(!allMonths)}
         className={`shrink-0 rounded border px-2.5 py-2 text-xs font-medium sm:py-1.5 ${
           allMonths
-            ? 'border-neutral-900 bg-neutral-900 text-white'
-            : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50'
+            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+            : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800'
         }`}
       >
         All

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { OffDayResolver, Task, TaskCategory } from '@/lib/types';
 import { countWorkingDays, effectiveCategoryId, resolveTaskColors } from '@/lib/calendar';
 import { SWATCHES, readableTextColor } from '@/lib/presets';
+import { MAX_DATE, MAX_YEAR, MIN_DATE, MIN_YEAR, isSaneDate } from '@/lib/date';
 import Modal from './Modal';
 
 interface Props {
@@ -19,9 +20,10 @@ interface Props {
 
 // 16px on mobile: anything smaller makes Safari iOS zoom the page on focus.
 const inputCls =
-  'w-full rounded border border-neutral-300 bg-white px-2 py-2 text-[16px] outline-none focus:border-blue-500 sm:py-1.5 sm:text-sm';
+  'w-full rounded border border-neutral-300 bg-white px-2 py-2 text-[16px] outline-none focus:border-blue-500 sm:py-1.5 sm:text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100';
 
-const labelCls = 'mb-1 block text-[11px] font-medium uppercase tracking-wide text-neutral-500';
+const labelCls =
+  'mb-1 block text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400';
 
 export default function TaskDialog({
   task,
@@ -41,9 +43,14 @@ export default function TaskDialog({
 
   const { color, textColor } = resolveTaskColors(draft, categories);
   const invalidRange = Boolean(draft.start && draft.end && draft.start > draft.end);
+  // A date field happily submits "0006" while you are still typing "2026".
+  const outOfRange = Boolean(
+    (draft.start && !isSaneDate(draft.start)) || (draft.end && !isSaneDate(draft.end)),
+  );
   const missingName = draft.name.trim() === '';
   const workingDays = countWorkingDays(draft, isOff);
-  const canSave = !invalidRange && !missingName && Boolean(draft.start && draft.end);
+  const canSave =
+    !invalidRange && !outOfRange && !missingName && Boolean(draft.start && draft.end);
 
   return (
     <Modal
@@ -56,7 +63,7 @@ export default function TaskDialog({
             <button
               type="button"
               onClick={() => onDelete(draft.id)}
-              className="rounded border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+              className="rounded border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
             >
               Delete
             </button>
@@ -64,7 +71,7 @@ export default function TaskDialog({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+            className="ml-auto rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
             Cancel
           </button>
@@ -72,7 +79,7 @@ export default function TaskDialog({
             type="button"
             disabled={!canSave}
             onClick={() => onSave({ ...draft, name: draft.name.trim() })}
-            className="rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-40"
+            className="rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             Save
           </button>
@@ -94,7 +101,7 @@ export default function TaskDialog({
             style={{ backgroundColor: color, color: textColor }}
           />
           {missingName && (
-            <p className="mt-1 text-[11px] text-amber-600">Give the task a name to save it.</p>
+            <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">Give the task a name to save it.</p>
           )}
         </div>
 
@@ -107,6 +114,8 @@ export default function TaskDialog({
               id="task-start"
               type="date"
               value={draft.start}
+              min={MIN_DATE}
+              max={MAX_DATE}
               onChange={(e) => patch({ start: e.target.value })}
               className={inputCls}
             />
@@ -119,21 +128,26 @@ export default function TaskDialog({
               id="task-end"
               type="date"
               value={draft.end}
-              min={draft.start}
+              min={draft.start || MIN_DATE}
+              max={MAX_DATE}
               onChange={(e) => patch({ end: e.target.value })}
               className={inputCls}
             />
           </div>
         </div>
 
-        {invalidRange ? (
-          <p className="text-[11px] font-semibold text-red-600">End date is before the start date.</p>
+        {outOfRange ? (
+          <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">
+            Year must be between {MIN_YEAR} and {MAX_YEAR} — check for a typo.
+          </p>
+        ) : invalidRange ? (
+          <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">End date is before the start date.</p>
         ) : workingDays === 0 ? (
-          <p className="text-[11px] font-semibold text-amber-600">
+          <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
             This range falls entirely on days off — the task will not appear on the calendar.
           </p>
         ) : (
-          <p className="text-[11px] text-neutral-500">
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
             {workingDays} working {workingDays === 1 ? 'day' : 'days'} (days off excluded)
           </p>
         )}
@@ -169,7 +183,7 @@ export default function TaskDialog({
                 aria-label={hex}
                 onClick={() => patch({ color: hex, textColor: readableTextColor(hex) })}
                 className={`size-8 rounded border sm:size-6 ${
-                  draft.color === hex ? 'border-blue-600 ring-2 ring-blue-500' : 'border-neutral-300'
+                  draft.color === hex ? 'border-blue-600 ring-2 ring-blue-500' : 'border-neutral-300 dark:border-neutral-600'
                 }`}
                 style={{ backgroundColor: hex }}
               />
@@ -179,8 +193,8 @@ export default function TaskDialog({
               onClick={() => patch({ color: null, textColor: null })}
               className={`rounded border px-2 text-[11px] ${
                 draft.color === null
-                  ? 'border-blue-600 text-blue-700'
-                  : 'border-neutral-300 text-neutral-600'
+                  ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+                  : 'border-neutral-300 text-neutral-600 dark:border-neutral-600 dark:text-neutral-300'
               }`}
             >
               By type

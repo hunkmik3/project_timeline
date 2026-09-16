@@ -22,7 +22,7 @@ const toggle = <T,>(list: T[], value: T): T[] =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
 const dateInputCls =
-  'rounded border border-neutral-300 px-1.5 py-2 text-[16px] sm:py-1 sm:text-xs';
+  'rounded border border-neutral-300 px-1.5 py-2 text-[16px] sm:py-1 sm:text-xs dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100';
 
 export default function DaysOffDialog({
   open,
@@ -69,7 +69,7 @@ export default function DaysOffDialog({
         <button
           type="button"
           onClick={onClose}
-          className="ml-auto rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700"
+          className="ml-auto rounded bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
         >
           Done
         </button>
@@ -77,7 +77,7 @@ export default function DaysOffDialog({
     >
       <div className="space-y-4 text-sm">
         <section>
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-700">
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-700 dark:text-neutral-300">
             Weekly
           </h3>
           <div className="flex flex-wrap gap-1">
@@ -91,7 +91,7 @@ export default function DaysOffDialog({
                   className={`rounded border px-3 py-2 text-xs sm:px-2 sm:py-1 ${
                     active
                       ? 'border-[#1F4E5A] bg-[#1F4E5A] text-white'
-                      : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50'
+                      : 'border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
                   }`}
                 >
                   {WEEKDAY_HEADERS[i]}
@@ -103,14 +103,14 @@ export default function DaysOffDialog({
 
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-700">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-700 dark:text-neutral-300">
               Vietnamese public holidays
             </h3>
             <button
               type="button"
               onClick={onRefresh}
               disabled={loading}
-              className="rounded border border-neutral-300 px-2 py-1 text-[11px] text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+              className="rounded border border-neutral-300 px-2 py-1 text-[11px] text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               {loading ? 'Loading…' : 'Refresh'}
             </button>
@@ -125,7 +125,7 @@ export default function DaysOffDialog({
             />
             Apply Vietnamese public holidays
           </label>
-          <label className="mb-2 flex items-center gap-2 text-xs text-neutral-600">
+          <label className="mb-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
             <input
               type="checkbox"
               className="size-4 shrink-0 sm:size-3"
@@ -136,22 +136,22 @@ export default function DaysOffDialog({
           </label>
 
           {holidayWarning && (
-            <p className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
+            <p className="mb-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
               {holidayWarning}
             </p>
           )}
 
           {fetchedAt && (
-            <p className="mb-2 text-[10px] text-neutral-400">
+            <p className="mb-2 text-[10px] text-neutral-400 dark:text-neutral-500">
               Source: {holidaySource === 'google-calendar' ? 'Google Calendar VN' : 'built-in fallback'}
               {' · updated '}
               {new Date(fetchedAt).toLocaleString('en-GB')}
             </p>
           )}
 
-          <div className="max-h-56 space-y-1.5 overflow-y-auto rounded border border-neutral-200 p-2 sm:space-y-0.5">
+          <div className="max-h-56 space-y-1.5 overflow-y-auto rounded border border-neutral-200 p-2 sm:space-y-0.5 dark:border-neutral-700">
             {visibleHolidays.length === 0 && (
-              <p className="text-[11px] text-neutral-400">No holidays in this date range.</p>
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500">No holidays in this date range.</p>
             )}
             {visibleHolidays.map((h) => (
               <label key={h.date} className="flex items-center gap-2 text-[11px]">
@@ -164,17 +164,17 @@ export default function DaysOffDialog({
                     patch({ disabledHolidays: toggle(settings.disabledHolidays, h.date) })
                   }
                 />
-                <span className="w-24 shrink-0 tabular-nums text-neutral-500">
+                <span className="w-24 shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
                   {formatDate(h.date)}
                 </span>
                 <span className="truncate">{h.name}</span>
                 {h.workingDay ? (
-                  <span className="ml-auto shrink-0 rounded bg-sky-100 px-1 text-[9px] font-semibold text-sky-700">
+                  <span className="ml-auto shrink-0 rounded bg-sky-100 px-1 text-[9px] font-semibold text-sky-700 dark:bg-sky-900 dark:text-sky-200">
                     make-up workday
                   </span>
                 ) : (
                   !h.official && (
-                    <span className="ml-auto shrink-0 rounded bg-neutral-100 px-1 text-[9px] text-neutral-500">
+                    <span className="ml-auto shrink-0 rounded bg-neutral-100 px-1 text-[9px] text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300">
                       unofficial
                     </span>
                   )
@@ -185,7 +185,7 @@ export default function DaysOffDialog({
         </section>
 
         <section>
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-700">
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-700 dark:text-neutral-300">
             Custom days off
           </h3>
           {/* Two rows on phones; sm:contents drops the wrapper so it sits on one line. */}
@@ -206,7 +206,7 @@ export default function DaysOffDialog({
               <button
                 type="button"
                 onClick={addCustom}
-                className="shrink-0 rounded bg-neutral-900 px-3 py-2 text-xs text-white hover:bg-neutral-700 sm:px-2 sm:py-1"
+                className="shrink-0 rounded bg-neutral-900 px-3 py-2 text-xs text-white hover:bg-neutral-700 sm:px-2 sm:py-1 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
               >
                 Add
               </button>
@@ -217,7 +217,7 @@ export default function DaysOffDialog({
             <ul className="mt-2 space-y-0.5">
               {settings.customOffDays.map((c) => (
                 <li key={c.date} className="flex items-center gap-2 text-[11px]">
-                  <span className="w-24 shrink-0 tabular-nums text-neutral-500">
+                  <span className="w-24 shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
                     {formatDate(c.date)}
                   </span>
                   <span className="truncate">{c.label}</span>
@@ -240,10 +240,10 @@ export default function DaysOffDialog({
         </section>
 
         <section>
-          <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-neutral-700">
+          <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-neutral-700 dark:text-neutral-300">
             Make-up workdays
           </h3>
-          <p className="mb-1.5 text-[11px] text-neutral-500">
+          <p className="mb-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
             Force a working day even if it lands on a weekend or a holiday.
           </p>
           <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-1">
@@ -256,13 +256,13 @@ export default function DaysOffDialog({
             <button
               type="button"
               onClick={() => patch({ workingOverrides: toggle(settings.workingOverrides, workDate) })}
-              className="rounded border border-neutral-300 px-3 py-2 text-xs hover:bg-neutral-50 sm:px-2 sm:py-1"
+              className="rounded border border-neutral-300 px-3 py-2 text-xs hover:bg-neutral-50 sm:px-2 sm:py-1 dark:border-neutral-600 dark:hover:bg-neutral-800"
             >
               {settings.workingOverrides.includes(workDate) ? 'Remove make-up day' : 'Mark as workday'}
             </button>
           </div>
           {settings.workingOverrides.length > 0 && (
-            <p className="mt-1.5 text-[11px] text-neutral-500">
+            <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
               Working: {settings.workingOverrides.map(formatDate).join(', ')}
             </p>
           )}

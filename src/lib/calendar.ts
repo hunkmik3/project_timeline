@@ -12,6 +12,7 @@ import {
   columnIndex,
   firstOfMonth,
   getWeekday,
+  isSaneDate,
   lastOfMonth,
   monthsBetween,
   startOfWeek,
@@ -150,7 +151,8 @@ export function resolveRange(
     return { start: rangeStart, end: rangeEnd };
   }
 
-  const valid = tasks.filter((t) => t.start && t.end);
+  // A typo'd year must not stretch the timeline across centuries.
+  const valid = tasks.filter((t) => isSaneDate(t.start) && isSaneDate(t.end));
   if (valid.length === 0) {
     const today = todayISO();
     const [y, m] = today.split('-').map(Number);
@@ -182,6 +184,9 @@ function buildSegments(startCol: number, endCol: number, days: DayCell[]): TaskS
   return segments;
 }
 
+/** Roughly ten years — far past any real production schedule. */
+export const MAX_MONTHS = 120;
+
 export function buildTimeline(
   tasks: Task[],
   categories: TaskCategory[],
@@ -193,14 +198,16 @@ export function buildTimeline(
   const today = todayISO();
 
   const ordered = [...tasks]
-    .filter((t) => t.start && t.end && t.start <= t.end)
+    .filter((t) => isSaneDate(t.start) && isSaneDate(t.end) && t.start <= t.end)
     .sort((a, b) => a.start.localeCompare(b.start) || a.order - b.order || a.name.localeCompare(b.name));
 
   // Remember last week's lane so a long task does not hop between rows.
   const lastLane = new Map<string, number>();
   const blocks: MonthBlock[] = [];
 
-  for (const { year, month } of monthsBetween(start, end)) {
+  // Last-resort guard: bad data already in the database must not be able to
+  // ask the browser for thousands of month grids.
+  for (const { year, month } of monthsBetween(start, end).slice(0, MAX_MONTHS)) {
     const monthStart = firstOfMonth(year, month);
     const monthEnd = lastOfMonth(year, month);
     const weeks: WeekRow[] = [];
@@ -294,7 +301,7 @@ export function buildTimeline(
 
 /** Actual working days in a task (days off removed) — used to flag empty tasks. */
 export function countWorkingDays(task: Task, isOff: OffDayResolver): number {
-  if (!task.start || !task.end || task.start > task.end) return 0;
+  if (!isSaneDate(task.start) || !isSaneDate(task.end) || task.start > task.end) return 0;
   let n = 0;
   for (let d = task.start; d <= task.end; d = addDays(d, 1)) {
     if (!isOff(d).off) n += 1;

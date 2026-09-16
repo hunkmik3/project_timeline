@@ -1,14 +1,32 @@
 @import "tailwindcss";
 
+/* Theme is driven by data-theme on <html>, not the OS media query, so the
+   in-app Light / Dark / Auto switch can override the system setting. "Auto" is
+   resolved to one of the two by the boot script in layout.tsx. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme inline {
   --font-sans: var(--font-sans);
 }
 
-/* The app mimics a spreadsheet, so it stays light regardless of OS dark mode. */
+html {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  /* Turns native date pickers, checkboxes and scrollbars dark as well —
+     without this the form controls stay stark white inside a dark dialog. */
+  color-scheme: dark;
+}
+
 body {
   background: #ffffff;
   color: #171717;
-  color-scheme: light;
+}
+
+html[data-theme="dark"] body {
+  background: #0f0f11;
+  color: #e5e5e7;
 }
 
 @media print {

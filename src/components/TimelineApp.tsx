@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Holiday, OffDaySettings, ProjectState, Task } from '@/lib/types';
 import { buildTimeline, countWorkingDays, makeOffDayResolver, resolveRange } from '@/lib/calendar';
-import { addDays, firstOfMonth, lastOfMonth, todayISO } from '@/lib/date';
+import { addDays, firstOfMonth, isSaneDate, lastOfMonth, todayISO } from '@/lib/date';
 import {
   emptyProject,
   loadProject,
@@ -16,6 +16,14 @@ import TimelineCalendar from './TimelineCalendar';
 import TaskDialog from './TaskDialog';
 import DaysOffDialog from './DaysOffDialog';
 import MonthNav, { monthOf, type YearMonth } from './MonthNav';
+import {
+  THEME_LABELS,
+  THEME_ORDER,
+  applyTheme,
+  readStoredTheme,
+  watchSystemTheme,
+  type Theme,
+} from '@/lib/theme';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -62,6 +70,12 @@ export default function TimelineApp() {
   const [allMonths, setAllMonths] = useState(false);
   /** Local work found after switching to Supabase, offered for one-click import. */
   const [strandedLocal, setStrandedLocal] = useState<ProjectState | null>(null);
+
+  // Safe as a lazy initializer: nothing theme-dependent is rendered until the
+  // project has loaded, so this never reaches the prerendered HTML.
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof window === 'undefined' ? 'auto' : readStoredTheme(),
+  );
 
   // Skips the first save right after loading, and saves echoed back by realtime.
   const skipNextSave = useRef(true);
@@ -131,7 +145,9 @@ export default function TimelineApp() {
     const from = Math.min(Number(range.start.slice(0, 4)), view.year);
     const to = Math.max(Number(range.end.slice(0, 4)), view.year);
     const list: number[] = [];
-    for (let y = from; y <= to; y += 1) list.push(y);
+    // Capped: a stray year in the data must not turn into a request listing
+    // every year since 1970, nor a days-off list nobody can read.
+    for (let y = from; y <= to && list.length < 12; y += 1) list.push(y);
     return list;
   }, [range.start, range.end, view.year]);
 
@@ -187,6 +203,12 @@ export default function TimelineApp() {
     return () => clearTimeout(id);
   }, [project, loaded, slug]);
 
+  useEffect(() => {
+    applyTheme(theme);
+    // On "Auto", keep following the OS if the user flips it while this is open.
+    return watchSystemTheme(theme);
+  }, [theme]);
+
   const isOff = useMemo(
     () => makeOffDayResolver(project.offDays, holidays),
     [project.offDays, holidays],
@@ -218,7 +240,11 @@ export default function TimelineApp() {
   const hiddenTasks = useMemo(
     () =>
       project.tasks.filter(
-        (t) => !t.start || !t.end || t.start > t.end || countWorkingDays(t, isOff) === 0,
+        (t) =>
+          !isSaneDate(t.start) ||
+          !isSaneDate(t.end) ||
+          t.start > t.end ||
+          countWorkingDays(t, isOff) === 0,
       ),
     [project.tasks, isOff],
   );
@@ -314,7 +340,7 @@ export default function TimelineApp() {
   // client has loaded the project.
   if (!loaded) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-neutral-100 text-sm text-neutral-400">
+      <div className="flex h-dvh items-center justify-center bg-neutral-100 text-sm text-neutral-400 dark:bg-[#0f0f11]">
         Loading…
       </div>
     );
@@ -323,21 +349,21 @@ export default function TimelineApp() {
   return (
     // h-dvh, not h-screen: on mobile the collapsing address bar makes 100vh
     // taller than the visible area, which would push the toolbar out of view.
-    <div className="flex h-dvh flex-col bg-neutral-100 text-neutral-900">
-      <header className="shrink-0 border-b border-neutral-200 bg-white">
+    <div className="flex h-dvh flex-col bg-neutral-100 text-neutral-900 dark:bg-[#0f0f11] dark:text-neutral-100">
+      <header className="shrink-0 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#17171a]">
         <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
           <input
             value={project.title}
             onChange={(e) => setProject((p) => ({ ...p, title: e.target.value }))}
             aria-label="Project title"
-            className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-sm font-bold outline-none hover:border-neutral-200 focus:border-blue-500 sm:text-base"
+            className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-sm font-bold outline-none hover:border-neutral-200 focus:border-blue-500 sm:text-base dark:hover:border-neutral-700"
           />
 
           <span
             className={`hidden shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold uppercase sm:inline ${
               storageMode === 'supabase'
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-amber-100 text-amber-700'
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200'
+                : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200'
             }`}
             title={
               storageMode === 'supabase'
@@ -352,7 +378,7 @@ export default function TimelineApp() {
             <>
               <span
                 className={`hidden shrink-0 text-xs sm:inline ${
-                  saveState === 'error' ? 'text-red-600' : 'text-neutral-500'
+                  saveState === 'error' ? 'text-red-600 dark:text-red-400' : 'text-neutral-500 dark:text-neutral-400'
                 }`}
               >
                 {saveLabel}
@@ -377,24 +403,33 @@ export default function TimelineApp() {
           <button
             type="button"
             onClick={openNewTask}
-            className="shrink-0 rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-700"
+            className="shrink-0 rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             + Add task
           </button>
           <button
             type="button"
             onClick={() => setDaysOffOpen(true)}
-            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
             Days off
           </button>
           <button
             type="button"
             onClick={() => setFitWidth((v) => !v)}
-            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-600 lg:hidden"
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-600 lg:hidden dark:border-neutral-600 dark:text-neutral-300"
           >
             {fitWidth ? 'Zoom in' : 'Fit width'}
           </button>
+          <button
+            type="button"
+            onClick={() => setTheme(THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length])}
+            title="Switch between Auto, Light and Dark"
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            {THEME_LABELS[theme]}
+          </button>
+
           <button
             type="button"
             onClick={exportExcel}
@@ -417,7 +452,7 @@ export default function TimelineApp() {
       </header>
 
       {error && (
-        <div className="flex shrink-0 items-start justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 sm:px-4">
+        <div className="flex shrink-0 items-start justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 sm:px-4 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="shrink-0 font-bold">
             ✕
@@ -426,7 +461,7 @@ export default function TimelineApp() {
       )}
 
       {strandedLocal && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 sm:px-4">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 sm:px-4 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100">
           <span>
             This browser still has a timeline saved locally ({strandedLocal.tasks.length} tasks)
             from before the shared database was connected. Import it?
@@ -444,7 +479,7 @@ export default function TimelineApp() {
           <button
             type="button"
             onClick={() => setStrandedLocal(null)}
-            className="rounded border border-sky-300 px-2.5 py-1 font-semibold hover:bg-sky-100"
+            className="rounded border border-sky-300 px-2.5 py-1 font-semibold hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
           >
             Ignore
           </button>
@@ -452,7 +487,7 @@ export default function TimelineApp() {
       )}
 
       {hiddenTasks.length > 0 && (
-        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 sm:px-4">
+        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 sm:px-4 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           <span className="mr-1">
             {hiddenTasks.length} task{hiddenTasks.length > 1 ? 's' : ''} not shown (invalid dates or
             entirely on days off):
@@ -471,7 +506,7 @@ export default function TimelineApp() {
       )}
 
       <main className="min-h-0 flex-1 overflow-auto p-3 lg:p-6">
-        <div className="mx-auto max-w-5xl overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <div className="mx-auto max-w-5xl overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-[#151518]">
           <TimelineCalendar
             blocks={blocks}
             title={project.title}
