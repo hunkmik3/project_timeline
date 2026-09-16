@@ -1,10 +1,10 @@
 'use client';
 
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import type { MonthBlock } from '@/lib/calendar';
 import type { ISODate, TaskCategory, TaskPreset } from '@/lib/types';
 import MonthTaskPanel from './MonthTaskPanel';
-import { WEEKDAY_HEADERS, formatDate } from '@/lib/date';
+import { WEEKDAY_HEADERS, addDays, daysBetween, formatDate } from '@/lib/date';
 
 interface Props {
   blocks: MonthBlock[];
@@ -12,8 +12,13 @@ interface Props {
   /** Names from Task list, shown in each month's panel. */
   library: TaskPreset[];
   title: string;
-  selectedTaskId: string | null;
+  /** Every task currently picked out — one from a click, more via Alt-click. */
+  selectedIds: string[];
   onSelectTask: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  /** Shift the given tasks by a whole number of days. */
+  onMoveTasks: (ids: string[], deltaDays: number) => void;
+  onClearSelection: () => void;
   /** Passing a preset pre-fills the new task with that name and colour. */
   onAddTask: (preset?: TaskPreset) => void;
   /** Clicking or dragging across empty cells picks the dates for a new task. */
@@ -69,8 +74,11 @@ export default function TimelineCalendar({
   categories,
   library,
   title,
-  selectedTaskId,
+  selectedIds,
   onSelectTask,
+  onToggleSelect,
+  onMoveTasks,
+  onClearSelection,
   onAddTask,
   onAddRange,
   fitWidth,
@@ -80,8 +88,89 @@ export default function TimelineCalendar({
   /** A touch that did not move is a tap on one day — touch must not hijack scrolling. */
   const tap = useRef<{ date: ISODate; x: number; y: number } | null>(null);
 
-  const dateAt = (x: number, y: number) =>
-    document.elementFromPoint(x, y)?.closest('[data-date]')?.getAttribute('data-date') ?? null;
+  /**
+   * Walks everything under the cursor, not just the topmost element: while a
+   * block is being dragged it sits over the cells, and the date lives on the
+   * cell underneath it.
+   */
+  const dateAt = (x: number, y: number): ISODate | null => {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const date = (el as HTMLElement).closest?.('[data-date]')?.getAttribute('data-date');
+      if (date) return date;
+    }
+    return null;
+  };
+
+  const taskById = useMemo(
+    () => new Map(blocks.flatMap((b) => b.tasks.map((t) => [t.id, t] as const))),
+    [blocks],
+  );
+
+  /** A block being dragged to a new date: which tasks, and by how many days. */
+  const [move, setMove] = useState<{ ids: string[]; grabbed: ISODate; delta: number } | null>(null);
+  /** Set on drop so the click that follows a drag does not also open the task. */
+  const movedRef = useRef(false);
+
+  const selected = new Set(selectedIds);
+
+  const blockHandlers = (taskId: string) => ({
+    'data-block': true,
+    onPointerDown: (e: React.PointerEvent) => {
+      // Cleared first, before any early return: preventDefault below can swallow
+      // the click entirely, and a stale flag would eat the next genuine one.
+      movedRef.current = false;
+      // Touch keeps its tap-to-open; claiming the drag would cost scrolling.
+      if (e.pointerType !== 'mouse' || e.button !== 0 || e.altKey) return;
+      const grabbed = dateAt(e.clientX, e.clientY);
+      if (!grabbed) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const ids = selected.has(taskId) ? [...selected] : [taskId];
+      setMove({ ids, grabbed, delta: 0 });
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (!move) return;
+      const over = dateAt(e.clientX, e.clientY);
+      if (!over) return;
+      const delta = daysBetween(move.grabbed, over);
+      if (delta !== move.delta) setMove({ ...move, delta });
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      if (!move) return;
+      e.stopPropagation();
+      const { ids, delta } = move;
+      setMove(null);
+      if (delta !== 0) {
+        movedRef.current = true;
+        onMoveTasks(ids, delta);
+      }
+    },
+    onPointerCancel: () => setMove(null),
+    onClick: (e: React.MouseEvent) => {
+      // The drag already did the work; the trailing click must not reopen it.
+      if (movedRef.current) {
+        movedRef.current = false;
+        return;
+      }
+      if (e.altKey) {
+        e.preventDefault();
+        onToggleSelect(taskId);
+        return;
+      }
+      onSelectTask(taskId);
+    },
+  });
+
+  /** Where the dragged tasks would land — drawn on the cells as they move. */
+  const moveTarget = (date: ISODate | null) => {
+    if (!date || !move || move.delta === 0) return false;
+    return move.ids.some((id) => {
+      const t = taskById.get(id);
+      if (!t) return false;
+      return date >= addDays(t.start, move.delta) && date <= addDays(t.end, move.delta);
+    });
+  };
 
   const commit = (from: ISODate, to: ISODate) =>
     onAddRange(from <= to ? from : to, from <= to ? to : from);
@@ -95,6 +184,7 @@ export default function TimelineCalendar({
         return;
       }
       if (e.button !== 0) return;
+      onClearSelection();
       // Stops the drag from selecting the date numbers as text.
       e.preventDefault();
       setDrag({ from: date, to: date });
@@ -189,8 +279,9 @@ export default function TimelineCalendar({
                   library={library}
                   tasks={block.tasks}
                   categories={categories}
-                  selectedTaskId={selectedTaskId}
+                  selectedIds={selectedIds}
                   onSelectTask={onSelectTask}
+                  onToggleSelect={onToggleSelect}
                   onAddNamed={onAddTask}
                 />
               </aside>
@@ -244,7 +335,9 @@ export default function TimelineCalendar({
                               ? 'bg-[#1F4E5A] text-white'
                               : 'text-neutral-800 dark:text-neutral-300'
                           } ${day.isToday ? 'font-bold ring-1 ring-inset ring-blue-500' : ''} ${
-                            inDrag(day.date) ? 'ring-2 ring-inset ring-blue-500' : ''
+                            inDrag(day.date) || moveTarget(day.date)
+                              ? 'ring-2 ring-inset ring-blue-500'
+                              : ''
                           }`}
                           style={{ gridColumn: i + 1, gridRow: dateRow }}
                           title={day.offLabel}
@@ -261,7 +354,7 @@ export default function TimelineCalendar({
                             data-date={day.date ?? undefined}
                             className={`${CELL} ${day.date ? 'cursor-cell' : ''} ${
                               day.date && day.isOff ? 'bg-[#1F4E5A]' : ''
-                            } ${inDrag(day.date) ? 'ring-2 ring-inset ring-blue-500' : ''}`}
+                            } ${inDrag(day.date) || moveTarget(day.date) ? 'ring-2 ring-inset ring-blue-500' : ''}`}
                             style={{ gridColumn: i + 1, gridRow: laneStart + lane }}
                           />
                         )),
@@ -272,11 +365,11 @@ export default function TimelineCalendar({
                           <button
                             type="button"
                             key={`${p.task.id}-${si}`}
-                            onClick={() => onSelectTask(p.task.id)}
-                            title={`${p.task.name} · ${formatDate(p.task.start)} → ${formatDate(p.task.end)}`}
-                            className={`flex flex-col items-center justify-center overflow-hidden border border-neutral-300 px-0.5 leading-tight sm:px-1 dark:border-neutral-700 ${
-                              selectedTaskId === p.task.id ? 'ring-2 ring-inset ring-blue-600' : ''
-                            }`}
+                            {...blockHandlers(p.task.id)}
+                            title={`${p.task.name} · ${formatDate(p.task.start)} → ${formatDate(p.task.end)}\nDrag to move · Alt-click to add to selection`}
+                            className={`flex cursor-grab flex-col items-center justify-center overflow-hidden border border-neutral-300 px-0.5 leading-tight select-none active:cursor-grabbing sm:px-1 dark:border-neutral-700 ${
+                              selected.has(p.task.id) ? 'ring-2 ring-inset ring-blue-600' : ''
+                            } ${move?.ids.includes(p.task.id) ? 'opacity-50' : ''}`}
                             style={{
                               gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
                               gridRow: laneStart + p.lane,

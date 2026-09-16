@@ -10,8 +10,10 @@ interface Props {
   /** Everything landing in this month, whether it was drawn or not. */
   tasks: Task[];
   categories: TaskCategory[];
-  selectedTaskId: string | null;
+  selectedIds: string[];
   onSelectTask: (id: string) => void;
+  /** Alt-click picks a task out without opening it. */
+  onToggleSelect: (id: string) => void;
   onAddNamed: (preset: TaskPreset) => void;
 }
 
@@ -42,10 +44,12 @@ export default function MonthTaskPanel({
   library,
   tasks,
   categories,
-  selectedTaskId,
+  selectedIds,
   onSelectTask,
+  onToggleSelect,
   onAddNamed,
 }: Props) {
+  const selected = new Set(selectedIds);
   const claimed = new Set<string>();
 
   /**
@@ -75,10 +79,17 @@ export default function MonthTaskPanel({
     <button
       key={key}
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        if (task && e.altKey) {
+          e.preventDefault();
+          onToggleSelect(task.id);
+          return;
+        }
+        onClick();
+      }}
       title={task ? undefined : `Not scheduled this month — click to add ${name}`}
       className={`${ROW} ${
-        task && selectedTaskId === task.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
+        task && selected.has(task.id) ? 'bg-neutral-100 ring-1 ring-blue-500 dark:bg-neutral-800' : ''
       } ${task ? '' : 'opacity-50'}`}
     >
       <span

@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Holiday, ISODate, OffDaySettings, ProjectState, Task, TaskPreset } from '@/lib/types';
 import { buildTimeline, countWorkingDays, makeOffDayResolver, resolveRange } from '@/lib/calendar';
-import { addDays, firstOfMonth, isSaneDate, lastOfMonth, shiftMonth, todayISO } from '@/lib/date';
+import {
+  addDays,
+  firstOfMonth,
+  isSaneDate,
+  lastOfMonth,
+  shiftMonth,
+  todayISO,
+} from '@/lib/date';
 import {
   emptyProject,
   loadProject,
@@ -65,6 +72,8 @@ export default function TimelineApp() {
   const [editing, setEditing] = useState<{ task: Task; isNew: boolean } | null>(null);
   const [daysOffOpen, setDaysOffOpen] = useState(false);
   const [taskListOpen, setTaskListOpen] = useState(false);
+  /** Tasks picked out on the calendar; Alt-click adds to this, a plain click replaces it. */
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   /** Phones default to fitting the whole month on screen; off means scroll wider. */
   const [fitWidth, setFitWidth] = useState(true);
 
@@ -210,6 +219,14 @@ export default function TimelineApp() {
   }, [loaded, scrollToToday]);
 
   useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedIds([]);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
     applyTheme(theme);
     // On "Auto", keep following the OS if the user flips it while this is open.
     return watchSystemTheme(theme);
@@ -271,7 +288,39 @@ export default function TimelineApp() {
 
   const openTask = (id: string) => {
     const task = project.tasks.find((t) => t.id === id);
-    if (task) setEditing({ task, isNew: false });
+    if (!task) return;
+    setSelectedIds([id]);
+    setEditing({ task, isNew: false });
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  /**
+   * Shifts whole tasks, keeping their length. Refused outright if it would
+   * carry any of them past the supported year range — a partial move would
+   * leave the selection split across a boundary nobody asked for.
+   */
+  const moveTasks = (ids: string[], deltaDays: number) => {
+    if (deltaDays === 0 || ids.length === 0) return;
+    const moving = new Set(ids);
+    const affected = project.tasks.filter((t) => moving.has(t.id));
+    const shifted = affected.map((t) => ({
+      start: addDays(t.start, deltaDays),
+      end: addDays(t.end, deltaDays),
+    }));
+    if (shifted.some((r) => !isSaneDate(r.start) || !isSaneDate(r.end))) {
+      setError('That move would push a task outside the supported dates.');
+      return;
+    }
+    setProject((p) => ({
+      ...p,
+      tasks: p.tasks.map((t) =>
+        moving.has(t.id)
+          ? { ...t, start: addDays(t.start, deltaDays), end: addDays(t.end, deltaDays) }
+          : t,
+      ),
+    }));
   };
 
   const saveTask = (task: Task) => {
@@ -286,6 +335,7 @@ export default function TimelineApp() {
 
   const deleteTask = (id: string) => {
     setProject((p) => ({ ...p, tasks: p.tasks.filter((t) => t.id !== id) }));
+    setSelectedIds((ids) => ids.filter((x) => x !== id));
     setEditing(null);
   };
 
@@ -511,8 +561,11 @@ export default function TimelineApp() {
           categories={project.categories}
           library={project.taskLibrary}
           title={project.title}
-          selectedTaskId={editing?.task.id ?? null}
+          selectedIds={selectedIds}
           onSelectTask={openTask}
+          onToggleSelect={toggleSelect}
+          onMoveTasks={moveTasks}
+          onClearSelection={() => setSelectedIds([])}
           onAddTask={(preset) => openNewTask({ preset })}
           onAddRange={(start, end) => openNewTask({ start, end })}
           fitWidth={fitWidth}
