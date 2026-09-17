@@ -598,7 +598,7 @@ export default function TimelineApp() {
             onClick={() => void saveNow()}
             disabled={saveState === 'saving'}
             title="Save now (⌘S / Ctrl+S)"
-            className="ml-auto shrink-0 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            className="ml-auto shrink-0 rounded bg-rose-700 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-50"
           >
             {saveState === 'saving' ? 'Saving…' : 'Save'}
           </button>
@@ -614,7 +614,7 @@ export default function TimelineApp() {
             type="button"
             onClick={() => exportAs('pdf')}
             disabled={exporting !== null}
-            className="shrink-0 rounded bg-rose-700 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-50"
+            className="shrink-0 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {exporting === 'pdf' ? 'Exporting…' : 'Export PDF'}
           </button>
