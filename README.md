@@ -44,6 +44,11 @@ filled in. Anything scheduled whose name is not in the list is grouped under
 "Not in the list", so a task buried under days off, which has no block to click,
 is still reachable. The panel needs the width, so it is hidden below 1024px.
 
+**Undo** with `⌘Z` / `Ctrl+Z`, redo with `⇧⌘Z` or `Ctrl+Y`; both have toolbar
+buttons. Inside a text field the shortcut stays with the browser, so undo there
+steps through what you typed. Edits save themselves; **Save** (`⌘S` / `Ctrl+S`)
+writes immediately rather than waiting out the delay.
+
 **Click an empty cell** to add a task on that day, or drag across cells — in
 any direction, across weeks — to add one spanning that range. The dates arrive
 filled in; only the name is left. On a phone it is a tap for a single day;

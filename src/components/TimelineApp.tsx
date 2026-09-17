@@ -87,6 +87,74 @@ export default function TimelineApp() {
     typeof window === 'undefined' ? 'auto' : readStoredTheme(),
   );
 
+  /**
+   * Undo history. Only edits the user made are recorded — a project arriving
+   * from the database or from someone else's realtime change is not something
+   * they can meaningfully take back.
+   */
+  const history = useRef<{ past: ProjectState[]; future: ProjectState[]; lastKind: string | null }>(
+    { past: [], future: [], lastKind: null },
+  );
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const syncHistoryFlags = () => {
+    setCanUndo(history.current.past.length > 0);
+    setCanRedo(history.current.future.length > 0);
+  };
+
+  /**
+   * Every user edit goes through here. `kind` coalesces a run of the same
+   * action — typing a title is one undo step, not one per keystroke. The next
+   * state is computed from the render's own `project` rather than inside the
+   * updater, because React runs updaters twice in development and the history
+   * push would be duplicated.
+   */
+  const commit = (next: ProjectState, kind: string | null = null) => {
+    const h = history.current;
+    if (!(kind !== null && kind === h.lastKind)) {
+      h.past.push(project);
+      // Keeps a long session from growing without bound.
+      if (h.past.length > 100) h.past.shift();
+    }
+    h.future = [];
+    h.lastKind = kind;
+    setProject(next);
+    syncHistoryFlags();
+  };
+
+  const undo = () => {
+    const h = history.current;
+    const previous = h.past.pop();
+    if (!previous) return;
+    h.future.push(project);
+    h.lastKind = null;
+    setProject(previous);
+    syncHistoryFlags();
+  };
+
+  const redo = () => {
+    const h = history.current;
+    const next = h.future.pop();
+    if (!next) return;
+    h.past.push(project);
+    h.lastKind = null;
+    setProject(next);
+    syncHistoryFlags();
+  };
+
+  /** Writes immediately instead of waiting out the autosave delay. */
+  const saveNow = async () => {
+    setSaveState('saving');
+    try {
+      await saveProject(slug, project);
+      setSaveState('saved');
+    } catch (e) {
+      setSaveState('error');
+      setError(e instanceof Error ? e.message : 'Save failed');
+    }
+  };
+
   // Skips the first save right after loading, and saves echoed back by realtime.
   const skipNextSave = useRef(true);
   const didInitialScroll = useRef(false);
@@ -221,11 +289,39 @@ export default function TimelineApp() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedIds([]);
+      if (e.key === 'Escape') {
+        setSelectedIds([]);
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey)) return;
+
+      // Inside a text field these belong to the browser: undo should step
+      // through what was typed, not through the project's history.
+      const el = document.activeElement;
+      const typing =
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        (el instanceof HTMLElement && el.isContentEditable);
+
+      const key = e.key.toLowerCase();
+      if (key === 's') {
+        e.preventDefault();
+        void saveNow();
+        return;
+      }
+      if (typing) return;
+      if (key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (key === 'y') {
+        e.preventDefault();
+        redo();
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  });
 
   useEffect(() => {
     applyTheme(theme);
@@ -257,8 +353,8 @@ export default function TimelineApp() {
     [project.tasks, isOff],
   );
 
-  const setOffDays = (offDays: OffDaySettings) => setProject((p) => ({ ...p, offDays }));
-  const setLibrary = (taskLibrary: TaskPreset[]) => setProject((p) => ({ ...p, taskLibrary }));
+  const setOffDays = (offDays: OffDaySettings) => commit({ ...project, offDays }, 'offDays');
+  const setLibrary = (taskLibrary: TaskPreset[]) => commit({ ...project, taskLibrary }, 'library');
 
   const openNewTask = (opts: { preset?: TaskPreset; start?: ISODate; end?: ISODate } = {}) => {
     const { preset, start: pickedStart, end: pickedEnd } = opts;
@@ -312,7 +408,7 @@ export default function TimelineApp() {
       setError('That move would push a task outside the supported dates.');
       return;
     }
-    setProject((p) => ({ ...p, tasks: next }));
+    commit({ ...project, tasks: next });
   };
 
   const saveTask = (task: Task) => {
@@ -322,21 +418,21 @@ export default function TimelineApp() {
       setError('That change would push a dependent task outside the supported dates.');
       return;
     }
-    setProject((p) => ({ ...p, tasks: next }));
+    commit({ ...project, tasks: next });
     setEditing(null);
   };
 
   const deleteTask = (id: string) => {
-    setProject((p) => ({
-      ...p,
+    commit({
+      ...project,
       // Also unlink it: a dependency pointing at a deleted task is a dangling
       // reference that would quietly stop propagating.
-      tasks: p.tasks
+      tasks: project.tasks
         .filter((t) => t.id !== id)
         .map((t) =>
           t.dependsOn.includes(id) ? { ...t, dependsOn: t.dependsOn.filter((d) => d !== id) } : t,
         ),
-    }));
+    });
     setSelectedIds((ids) => ids.filter((x) => x !== id));
     setEditing(null);
   };
@@ -389,7 +485,7 @@ export default function TimelineApp() {
           <input
             {...NO_AUTOFILL}
             value={project.title}
-            onChange={(e) => setProject((p) => ({ ...p, title: e.target.value }))}
+            onChange={(e) => commit({ ...project, title: e.target.value }, 'title')}
             aria-label="Project title"
             className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-sm font-bold outline-none hover:border-neutral-200 focus:border-blue-500 sm:text-base dark:hover:border-neutral-700"
           />
@@ -481,9 +577,36 @@ export default function TimelineApp() {
 
           <button
             type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (⌘Z / Ctrl+Z)"
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (⇧⌘Z / Ctrl+Y)"
+            className="shrink-0 rounded border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Redo
+          </button>
+          <button
+            type="button"
+            onClick={() => void saveNow()}
+            disabled={saveState === 'saving'}
+            title="Save now (⌘S / Ctrl+S)"
+            className="ml-auto shrink-0 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saveState === 'saving' ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            type="button"
             onClick={() => exportAs('xlsx')}
             disabled={exporting !== null}
-            className="ml-auto shrink-0 rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="shrink-0 rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {exporting === 'xlsx' ? 'Exporting…' : 'Export Excel'}
           </button>
@@ -516,7 +639,7 @@ export default function TimelineApp() {
           <button
             type="button"
             onClick={() => {
-              setProject(strandedLocal);
+              commit(strandedLocal);
               setStrandedLocal(null);
             }}
             className="rounded bg-sky-700 px-2.5 py-1 font-semibold text-white hover:bg-sky-800"
