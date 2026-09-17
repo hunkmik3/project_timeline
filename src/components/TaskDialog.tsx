@@ -4,7 +4,17 @@ import { useState } from 'react';
 import type { OffDayResolver, Task, TaskCategory, TaskPreset } from '@/lib/types';
 import { countWorkingDays, effectiveCategoryId, resolveTaskColors } from '@/lib/calendar';
 import { SWATCHES, readableTextColor } from '@/lib/presets';
-import { MAX_DATE, MAX_YEAR, MIN_DATE, MIN_YEAR, formatRangeShort, isSaneDate } from '@/lib/date';
+import {
+  MAX_DATE,
+  MAX_YEAR,
+  MIN_DATE,
+  MIN_YEAR,
+  MONTH_NAMES_EN,
+  firstOfMonth,
+  formatRangeShort,
+  isSaneDate,
+  lastOfMonth,
+} from '@/lib/date';
 import { brokenLinks, wouldCycle } from '@/lib/dependencies';
 import { NO_AUTOFILL } from '@/lib/form';
 import Modal from './Modal';
@@ -65,6 +75,27 @@ export default function TaskDialog({
   const missingName = draft.name.trim() === '';
   const workingDays = countWorkingDays(draft, isOff);
   const violations = brokenLinks(draft, allTasks);
+
+  /**
+   * Only work from the same month is offered: across a whole project the list
+   * runs to dozens of names and the one being looked for is buried. A task
+   * already chosen stays in the list even if it sits outside — dropping it
+   * would blank the field and wipe the link on the next save.
+   */
+  const monthOfTask = isSaneDate(draft.start)
+    ? { year: Number(draft.start.slice(0, 4)), month: Number(draft.start.slice(5, 7)) }
+    : null;
+
+  const predecessorOptions = allTasks.filter((t) => {
+    if (t.id === draft.id) return false;
+    // Itself, and anything already waiting on it, would close a loop.
+    if (wouldCycle(draft.id, t.id, allTasks)) return false;
+    if (draft.dependsOn.includes(t.id)) return true;
+    if (!monthOfTask) return true;
+    const from = firstOfMonth(monthOfTask.year, monthOfTask.month);
+    const to = lastOfMonth(monthOfTask.year, monthOfTask.month);
+    return t.start <= to && t.end >= from;
+  });
   const canSave =
     !invalidRange && !outOfRange && !missingName && Boolean(draft.start && draft.end);
 
@@ -278,15 +309,19 @@ export default function TaskDialog({
             className={inputCls}
           >
             <option value="">— nothing, it stands alone —</option>
-            {allTasks
-              // Itself, and anything already waiting on it, would close a loop.
-              .filter((t) => t.id !== draft.id && !wouldCycle(draft.id, t.id, allTasks))
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} · {formatRangeShort(t.start, t.end)}
-                </option>
-              ))}
+            {predecessorOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} · {formatRangeShort(t.start, t.end)}
+              </option>
+            ))}
           </select>
+          {monthOfTask && (
+            <p className="mt-1 text-[10px] text-neutral-400 dark:text-neutral-500">
+              {predecessorOptions.length === 0
+                ? `Nothing else in ${MONTH_NAMES_EN[monthOfTask.month - 1]} to wait for.`
+                : `Showing tasks in ${MONTH_NAMES_EN[monthOfTask.month - 1]} ${monthOfTask.year}.`}
+            </p>
+          )}
           {violations.length > 0 && (
             <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
               Starts on or before {violations.map((t) => t.name).join(', ')} finishes. Saved either

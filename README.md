@@ -54,6 +54,11 @@ any direction, across weeks — to add one spanning that range. The dates arrive
 filled in; only the name is left. On a phone it is a tap for a single day;
 dragging there is reserved for scrolling.
 
+A task can be set to **start after** another: moving that one then carries this
+one, and anything further down the chain, by the same number of days. The list
+offers the month the task sits in — across a whole project it runs to dozens of
+names — and a task spanning a month boundary shows up in both.
+
 **Click any block** on the calendar to edit or delete that task.
 
 A task's note shows on the block itself, in italics under the name. The name is
