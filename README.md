@@ -117,7 +117,7 @@ Edits then propagate live to everyone with the page open.
 **Projects** in the header lists everything saved and creates new ones. Each
 project has its own calendar, task list and days off, and lives at its own
 `?p=<slug>` — the slug comes from the name, tone marks stripped, so "Kịch bản
-Vinamilk" becomes `kich-ban-vinamilk`.
+phim" becomes `kich-ban-phim`.
 
 Switching reloads the page. A project carries its own undo history, selection
 and scroll position, and a reload drops all of it rather than leaving the last

@@ -123,7 +123,7 @@ export default function ProjectsDialog({ open, currentSlug, onClose }: Props) {
                 void create();
               }
             }}
-            placeholder="New project name, e.g. Vinamilk TVC"
+            placeholder="New project name"
             className={inputCls}
           />
           <button
