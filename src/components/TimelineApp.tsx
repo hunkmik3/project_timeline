@@ -24,6 +24,7 @@ import TimelineCalendar from './TimelineCalendar';
 import TaskDialog from './TaskDialog';
 import DaysOffDialog from './DaysOffDialog';
 import TaskListDialog from './TaskListDialog';
+import ProjectsDialog from './ProjectsDialog';
 import { NO_AUTOFILL } from '@/lib/form';
 import {
   THEME_LABELS,
@@ -73,6 +74,7 @@ export default function TimelineApp() {
   const [editing, setEditing] = useState<{ task: Task; isNew: boolean } | null>(null);
   const [daysOffOpen, setDaysOffOpen] = useState(false);
   const [taskListOpen, setTaskListOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   /** Tasks picked out on the calendar; Alt-click adds to this, a plain click replaces it. */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   /** Phones default to fitting the whole month on screen; off means scroll wider. */
@@ -490,6 +492,15 @@ export default function TimelineApp() {
             className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-sm font-bold outline-none hover:border-neutral-200 focus:border-blue-500 sm:text-base dark:hover:border-neutral-700"
           />
 
+          <button
+            type="button"
+            onClick={() => setProjectsOpen(true)}
+            title="Switch or create a project"
+            className="shrink-0 rounded border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Projects
+          </button>
+
           <span
             className={`hidden shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold uppercase sm:inline ${
               storageMode === 'supabase'
@@ -710,6 +721,12 @@ export default function TimelineApp() {
         onSave={saveTask}
         onDelete={deleteTask}
       />
+
+      {/* Mounted only while open so the list is re-read each time, rather than
+          showing whatever it held when it was last closed. */}
+      {projectsOpen && (
+        <ProjectsDialog open currentSlug={slug} onClose={() => setProjectsOpen(false)} />
+      )}
 
       <TaskListDialog
         open={taskListOpen}

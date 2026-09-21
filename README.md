@@ -112,8 +112,17 @@ To put the whole team on one link:
 
 Edits then propagate live to everyone with the page open.
 
-For several projects at once, add `?p=<slug>` to the URL, e.g.
-`localhost:3000/?p=vinamilk-tvc`. Each slug is its own timeline.
+## Projects
+
+**Projects** in the header lists everything saved and creates new ones. Each
+project has its own calendar, task list and days off, and lives at its own
+`?p=<slug>` — the slug comes from the name, tone marks stripped, so "Kịch bản
+Vinamilk" becomes `kich-ban-vinamilk`.
+
+Switching reloads the page. A project carries its own undo history, selection
+and scroll position, and a reload drops all of it rather than leaving the last
+project's leftovers behind. The project you are looking at cannot be deleted
+from under you — switch away first.
 
 ## A note on the holiday feed
 

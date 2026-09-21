@@ -95,6 +95,91 @@ export function normalizeProject(raw: unknown): ProjectState {
 const localKey = (slug: string) => `timeline:${slug}`;
 
 /**
+ * The theme setting shares the `timeline:` prefix, so it has to be kept out of
+ * the project listing — and its name kept out of the slugs people can take.
+ */
+const RESERVED_SLUGS = new Set(['theme']);
+
+export interface ProjectSummary {
+  slug: string;
+  title: string;
+  updatedAt: string | null;
+}
+
+/** Turns a project name into a URL-safe slug. */
+export function slugify(name: string): string {
+  const base = name
+    .normalize('NFD')
+    // Strips Vietnamese tone marks so "Kịch bản" becomes "kich-ban" rather than
+    // collapsing to a row of hyphens.
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return base || 'project';
+}
+
+/** Appends -2, -3 … until the slug is free. */
+export function uniqueSlug(name: string, taken: string[]): string {
+  const base = slugify(name);
+  const used = new Set([...taken, ...RESERVED_SLUGS]);
+  if (!used.has(base)) return base;
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${base}-${n}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  return `${base}-${Date.now()}`;
+}
+
+export async function listProjects(): Promise<ProjectSummary[]> {
+  if (storageMode === 'local') {
+    const out: ProjectSummary[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('timeline:')) continue;
+      const slug = key.slice('timeline:'.length);
+      if (RESERVED_SLUGS.has(slug)) continue;
+      try {
+        const data = JSON.parse(localStorage.getItem(key) as string) as { title?: string };
+        out.push({ slug, title: data.title || slug, updatedAt: null });
+      } catch {
+        // A key that is not a project payload is simply not one.
+      }
+    }
+    return out.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  const { data, error } = await supabase()
+    .from(TABLE)
+    .select('slug,title,updated_at')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw new Error(`Could not list projects: ${error.message}`);
+  return (data ?? []).map((r) => ({
+    slug: r.slug as string,
+    title: (r.title as string) || (r.slug as string),
+    updatedAt: (r.updated_at as string) ?? null,
+  }));
+}
+
+export async function createProject(slug: string, title: string): Promise<void> {
+  const state = { ...emptyProject(), title };
+  await saveProject(slug, state);
+}
+
+export async function deleteProject(slug: string): Promise<void> {
+  if (storageMode === 'local') {
+    localStorage.removeItem(localKey(slug));
+    return;
+  }
+  const { error } = await supabase().from(TABLE).delete().eq('slug', slug);
+  if (error) throw new Error(`Could not delete project: ${error.message}`);
+}
+
+/**
  * Reads the browser copy regardless of the active mode. Used right after
  * switching to Supabase, so work saved locally before the switch can be
  * carried over instead of silently stranded.
