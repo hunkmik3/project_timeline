@@ -391,7 +391,11 @@ export default function TimelineCalendar({
                               {p.task.name}
                             </span>
                             {p.task.note && (
-                              <span className={`w-full truncate italic opacity-80 ${noteText}`}>
+                              // whitespace-pre-line keeps the line breaks that
+                              // were typed; without it they collapse to spaces.
+                              <span
+                                className={`line-clamp-3 w-full whitespace-pre-line italic opacity-80 [overflow-wrap:anywhere] ${noteText}`}
+                              >
                                 {p.task.note}
                               </span>
                             )}

@@ -104,12 +104,19 @@ export async function buildWorkbook(opts: {
       // Lane rows holding the task blocks
       const laneStart = r;
       // A note adds a second line inside the cell, so that lane needs the height.
-      const laneHasNote = new Set(
-        week.placed.filter((p) => p.task.note?.trim()).map((p) => p.lane),
-      );
+      // Height follows the longest note in the lane: a note can now carry its
+      // own line breaks, and a fixed height would clip them.
+      const laneNoteLines = new Map<number, number>();
+      for (const p of week.placed) {
+        const note = p.task.note?.trim();
+        if (!note) continue;
+        const lines = note.split('\n').length;
+        laneNoteLines.set(p.lane, Math.max(laneNoteLines.get(p.lane) ?? 0, lines));
+      }
       for (let lane = 0; lane < week.laneCount; lane += 1) {
         const laneRow = ws.getRow(laneStart + lane);
-        laneRow.height = laneHasNote.has(lane) ? 30 : 20;
+        const noteLines = laneNoteLines.get(lane) ?? 0;
+        laneRow.height = noteLines === 0 ? 20 : 18 + Math.min(noteLines, 4) * 12;
         for (let c = 0; c < COLS; c += 1) {
           const cell = ws.getCell(laneStart + lane, c + 1);
           cell.border = thinBorder();

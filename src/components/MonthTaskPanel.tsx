@@ -115,7 +115,7 @@ export default function MonthTaskPanel({
           </span>
         )}
         {task?.note && (
-          <span className="line-clamp-2 block text-[11px] italic leading-tight text-neutral-400 [overflow-wrap:anywhere] dark:text-neutral-500">
+          <span className="line-clamp-3 block whitespace-pre-line text-[11px] italic leading-tight text-neutral-400 [overflow-wrap:anywhere] dark:text-neutral-500">
             {task.note}
           </span>
         )}

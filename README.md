@@ -61,9 +61,12 @@ names — and a task spanning a month boundary shows up in both.
 
 **Click any block** on the calendar to edit or delete that task.
 
-A task's note shows on the block itself, in italics under the name. The name is
-set larger than the date numbers — it is what the calendar is read for. Notes
-carry through to both exports.
+A task's note shows on the block itself, in italics under the name, keeping the
+line breaks it was typed with — the field is a textarea, so Enter starts a new
+line. The name is set larger than the date numbers; it is what the calendar is
+read for. Notes carry through to both exports: Excel grows the row to fit them,
+the PDF grows its lane rows, and the PDF's task table carries the full text for
+anything the calendar had to clip.
 
 **Days off**
 

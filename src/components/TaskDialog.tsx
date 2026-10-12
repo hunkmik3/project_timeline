@@ -339,13 +339,14 @@ export default function TaskDialog({
           <label className={labelCls} htmlFor="task-note">
             Note
           </label>
-          <input
+          <textarea
             id="task-note"
             {...NO_AUTOFILL}
             value={draft.note}
             onChange={(e) => patch({ note: e.target.value })}
-            placeholder="Optional"
-            className={inputCls}
+            rows={3}
+            placeholder="Optional — Enter starts a new line"
+            className={`${inputCls} resize-y leading-snug`}
           />
         </div>
       </div>

@@ -119,11 +119,29 @@ export async function buildPdf(opts: {
     // One row for the weekday header, then per week a dates row plus its lanes.
     // Lane rows carry the task name and its note, so they take the bigger
     // share; date rows only hold a number.
-    const LANE_RATIO = 1.35 / 0.85;
+    // A note can run to several lines, and the row has to grow to hold them or
+    // the text is clipped. Taking the longest note in the month keeps every lane
+    // the same height — varying them per lane would mean tracking a separate
+    // offset for every row. Capped at three lines so a very long note cannot
+    // squeeze the date rows away.
+    const noteLines = Math.min(
+      3,
+      Math.max(
+        1,
+        ...block.weeks.flatMap((wk) =>
+          wk.placed.map((pl) => (pl.task.note?.trim() ? pl.task.note.trim().split('\n').length : 1)),
+        ),
+      ),
+    );
+    const BASE_LANE_RATIO = 1.35 / 0.85;
+    const LANE_RATIO = BASE_LANE_RATIO * (1 + 0.5 * (noteLines - 1));
     const dateRows = 1 + block.weeks.length;
     const laneRows = block.weeks.reduce((n, w) => n + w.laneCount, 0);
     const unit = Math.min(
-      MAX_ROW_HEIGHT / LANE_RATIO,
+      // The cap is on the base unit, not the note-widened lane: capping the
+      // lane itself held it at 40pt, too short for a name plus three lines,
+      // and the note was clipped to one however much room the page had.
+      MAX_ROW_HEIGHT / BASE_LANE_RATIO,
       (pageH - MARGIN - top) / (dateRows + laneRows * LANE_RATIO),
     );
     const dateH = unit;
@@ -171,25 +189,37 @@ export async function buildPdf(opts: {
 
           cell('', x, boxY, w, laneH, { fill: placed.color });
 
-          // A long name wraps rather than being cut off, but only as far as the
-          // row allows. The line height has to come from the font — it runs
-          // well above the point size, and guessing it costs a whole line.
+          // Measure both pieces first, then draw. Every measurement and every
+          // draw sets its own font: PDFKit keeps the last one, and leaving the
+          // italic from the note measurement in place rendered the name italic.
           const textW = w - 4;
+
           doc.font('bold').fontSize(nameSize);
-          const lineHeight = doc.currentLineHeight();
-          const roomForName = laneH - 2 - (note ? noteSize + 2 : 0);
-          const maxLines = Math.min(2, Math.max(1, Math.floor(roomForName / lineHeight)));
+          const nameLine = doc.currentLineHeight();
+          // One line for the name when a note follows it, so the note gets the
+          // rest of the row; two when the name is alone.
           const nameH = Math.min(
             doc.heightOfString(placed.task.name, { width: textW }),
-            lineHeight * maxLines,
+            nameLine * (note ? 1 : 2),
           );
 
-          const lineH = note ? nameH + noteSize + 2 : nameH;
-          let ty = boxY + (laneH - lineH) / 2 - 1;
+          let noteH = 0;
+          if (note) {
+            doc.font('italic').fontSize(noteSize);
+            noteH = Math.min(
+              doc.heightOfString(note, { width: textW }),
+              Math.max(0, laneH - nameH - 4),
+            );
+          }
+
+          const blockH = note ? nameH + noteH + 2 : nameH;
+          const top0 = boxY + Math.max(1, (laneH - blockH) / 2);
 
           doc
+            .font('bold')
+            .fontSize(nameSize)
             .fillColor(placed.textColor)
-            .text(placed.task.name, x + 2, ty, {
+            .text(placed.task.name, x + 2, top0, {
               width: textW,
               height: nameH,
               align: 'center',
@@ -197,16 +227,15 @@ export async function buildPdf(opts: {
             });
 
           if (note) {
-            ty += nameH + 2;
             doc
               .font('italic')
               .fontSize(noteSize)
               .fillColor(placed.textColor)
               .opacity(0.8)
-              .text(note, x + 2, ty, {
+              .text(note, x + 2, top0 + nameH + 2, {
                 width: textW,
+                height: noteH,
                 align: 'center',
-                lineBreak: false,
                 ellipsis: true,
               })
               .opacity(1);
@@ -226,12 +255,13 @@ export async function buildPdf(opts: {
     doc.font('bold').fontSize(14).fillColor('#111111').text('TASKS', MARGIN, MARGIN);
 
     const cols = [
-      { label: 'TASK', w: gridW * 0.3 },
-      { label: 'TYPE', w: gridW * 0.16 },
-      { label: 'START', w: gridW * 0.15 },
-      { label: 'END', w: gridW * 0.15 },
-      { label: 'WORKING DAYS', w: gridW * 0.14 },
-      { label: 'COLOUR', w: gridW * 0.1 },
+      { label: 'TASK', w: gridW * 0.2 },
+      { label: 'TYPE', w: gridW * 0.12 },
+      { label: 'START', w: gridW * 0.11 },
+      { label: 'END', w: gridW * 0.11 },
+      { label: 'DAYS', w: gridW * 0.07 },
+      { label: 'NOTE', w: gridW * 0.33 },
+      { label: 'COLOUR', w: gridW * 0.06 },
     ];
 
     let y = MARGIN + 26;
@@ -250,12 +280,15 @@ export async function buildPdf(opts: {
       }
       const { color } = resolveTaskColors(task, categories);
       const cat = categories.find((c) => c.id === effectiveCategoryId(task, categories));
+      // The calendar block clips a long note to the row; the full text lives
+      // here, with its line breaks flattened so it stays on one row.
       const values = [
         task.name,
         cat?.name ?? '',
         formatDate(task.start),
         formatDate(task.end),
         String(countWorkingDays(task, isOff)),
+        (task.note ?? '').replace(/\s*\n\s*/g, ' · '),
       ];
 
       x = MARGIN;
@@ -263,7 +296,7 @@ export async function buildPdf(opts: {
         cell(v, x, y, cols[i].w, rowH, { size: 8 });
         x += cols[i].w;
       });
-      cell('', x, y, cols[5].w, rowH, { fill: color });
+      cell('', x, y, cols[6].w, rowH, { fill: color });
       y += rowH;
     }
   }
